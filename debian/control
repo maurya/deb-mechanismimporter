@@ -1,0 +1,12 @@
+Source: mechanismimporter
+Section: misc
+Priority: optional
+Maintainer: keybase.io/ryanyates <ryanyates@keybase.io>
+Build-Depends: debhelper (>= 8.0.0)
+Standards-Version: 3.9.4
+Homepage: http://daitm.org
+
+Package: mechanismimporter
+Architecture: amd64
+Depends: nodejs, npm, nodejs-legacy
+Description: Mechanism Importer  for CSD

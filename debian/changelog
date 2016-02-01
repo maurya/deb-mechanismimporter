@@ -1,0 +1,11 @@
+mechanismimporter (1.0.0-0ubuntu2) trusty; urgency=medium
+
+  * fix spelling, move node module home 
+
+ -- keybase.io/ryanyates <ryanyates@keybase.io>  Fri, 29 Jan 2016 22:15:27 +0000
+
+mechanismimporter (1.0.0-0ubuntu1) trusty; urgency=low
+
+  * Initial release -- rough
+
+ -- keybase.io/ryanyates <ryanyates@keybase.io>  Thu, 28 Jan 2016 20:19:05 +0000

@@ -1,0 +1,17 @@
+#!/bin/sh
+MIDIR=/var/lib/mechanismimporter
+
+# Create mechanism importer user
+adduser --home=/var/lib/mechanismimporter mechanismimporter
+
+# create logs dir
+mkdir -p ${MIDIR}/logs/
+
+# Use npm to install deps.  This should be in a package.json...
+npm install --prefix ${MIDIR} synchronize
+npm install --prefix ${MIDIR} xml2js
+npm install --prefix ${MIDIR} fast-csv
+npm install --prefix ${MIDIR} properties-reader
+
+# Correct permissions on directory
+chown -R mechanismimporter ${MIDIR}
