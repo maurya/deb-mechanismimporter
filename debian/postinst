@@ -2,7 +2,12 @@
 MIDIR=/var/lib/mechanismimporter
 
 # Create mechanism importer user
-adduser --home=/var/lib/mechanismimporter mechanismimporter
+USER=$(id -u mechanismimporter &>/dev/null)
+if [ ! $USER ]
+then
+	echo "Creating mechanismimporter user..."
+	useradd -d /var/lib/mechanismimporter -s /bin/sh -U mechanismimporter
+fi
 
 # create logs dir
 mkdir -p ${MIDIR}/logs/
@@ -14,4 +19,7 @@ npm install --prefix ${MIDIR} fast-csv
 npm install --prefix ${MIDIR} properties-reader
 
 # Correct permissions on directory
-chown -R mechanismimporter ${MIDIR}
+chown -R mechanismimporter:mechanismimporter ${MIDIR}
+
+# Add init.d script to startup
+update-rc.d mechanismimporter defaults

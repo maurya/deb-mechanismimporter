@@ -57,6 +57,7 @@ function readCsv(callback) {
 }
 
 exports.sync = function() {
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0" // Avoids DEPTH_ZERO_SELF_SIGNED_CERT error for self-signed certs
     log.openAll("../../log/", 1);
     sync.await(readCsv(sync.defer()));
     mechanisms.sync(true, mechanismList);

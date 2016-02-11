@@ -35,7 +35,7 @@ var ilrOuSearch =
     '</csd:requestParams>';
 
 function csdConfig() {
-    var propertiesFile = '/etc/mechanismImporter/mechanismImporter.properties';
+    var propertiesFile = exports.propertiesFile = '/etc/mechanismImporter/mechanismImporter.properties';
     var dhisProtocolProperty = 'node.dhis.protocol';
     var dhisHostnameProperty = 'node.dhis.domain';
     var dhisPortProperty = 'node.dhis.port';
@@ -43,7 +43,7 @@ function csdConfig() {
     var dhisUsernameProperty = 'node.dhis.username';
     var dhisPasswordProperty = 'node.dhis.password';
 
-    var ilrProtocolProprerty = 'node.irl.protocol';
+    var ilrProtocolProprerty = 'node.ilr.protocol';
     var ilrHostnameProperty = 'node.ilr.domain';
     var ilrPortProperty = 'node.ilr.port';
     var ilrMechanismPathProperty = 'node.ilr.mechanismPath';
@@ -72,7 +72,7 @@ function csdConfig() {
     var getIlrProtocol = config.get(ilrProtocolProprerty);
     var getIlrPort = config.get(ilrPortProperty);
     var getIlrMechanismPath = config.get(ilrMechanismPathProperty);
-    var getIlrOuSearchPath = config.get(ilrPortProperty);
+    var getIlrOuSearchPath = config.get(ilrOuSearchPathProperty);
 
     var getLogDirectory = config.get(logDirectoryProperty);
     var getLogMinimumLevel = config.get(logMinimumLevelProperty);
@@ -222,13 +222,13 @@ function resolveUuidReferences() {
         var m = mechanismList[i];
         var partner = partners[m.partnerUuid];
         if (!partner) {
-            log.error("Can't find partner with UUID " + m.partnerUuid);
+            log.error("Can't find partner with UUID '" + m.partnerUuid + "'");
         }
         m.partnerName = partner.name;
         m.partnerCode = partner.code;
         country = countries[m.countryUuid];
         if (!country) {
-            log.error("Can't find country with UUID " + m.countryUuid);
+            log.error("Can't find country with UUID '" + m.countryUuid + "'");
         }
         m.countryName = country.name;
     }
@@ -242,7 +242,8 @@ function loadCsd( method, path, contentType, payload ) {
     log.debug("loadCsd Finished " + ilrProtocol + "://" + ilrHostname + ":" + ilrPort + path);
 }
 
-function main() {
+var main = exports.main = function main() {
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"; // Ignore errors from self signed certificates
     csdConfig();
     loadCsd("get", ilrMechanismPath, {}, null );
     loadCsd("post", ilrOuSearchPath, {"Content-Type": "text/xml", "Content-Length": Buffer.byteLength(ilrOuSearch)}, ilrOuSearch);

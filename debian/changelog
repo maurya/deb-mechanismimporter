@@ -1,3 +1,21 @@
+mechanismimporter (1.0.0-0ubuntu5) trusty; urgency=medium
+
+  * fix log dir for service logs 
+
+ -- keybase.io/ryanyates <ryanyates@keybase.io>  Wed, 10 Feb 2016 19:18:45 +0000
+
+mechanismimporter (1.0.0-0ubuntu4) trusty; urgency=medium
+
+  * add check for existing user in postinst 
+
+ -- keybase.io/ryanyates <ryanyates@keybase.io>  Wed, 10 Feb 2016 17:52:07 +0000
+
+mechanismimporter (1.0.0-0ubuntu3) trusty; urgency=medium
+
+  * update sync and insert init.d script 
+
+ -- keybase.io/ryanyates <ryanyates@keybase.io>  Wed, 10 Feb 2016 14:55:03 +0000
+
 mechanismimporter (1.0.0-0ubuntu2) trusty; urgency=medium
 
   * fix spelling, move node module home 

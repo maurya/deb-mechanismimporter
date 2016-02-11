@@ -45,7 +45,7 @@ exports.openAll = function(logDirectory, minLogLevel) {
     minimumLogLevel = minLogLevel;
     for (var f in files) {
         if (files[f].level.value >= minimumLogLevel) {
-            files[f].stream = fs.createWriteStream(logDirectory + filename(files[f].name), 'a');
+            files[f].stream = fs.createWriteStream(logDirectory + filename(files[f].name), {flags: 'a'} );
         }
     }
     initialized = true;
