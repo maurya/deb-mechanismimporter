@@ -17,8 +17,8 @@ user="mechanismimporter"
 name=`basename $0`
 pid_file="/var/run/$name.pid"
 # Setting to dev null as logging is handled elsewhere.
-stdout_log="$basedir/service.log"
-stderr_log="$basedir/service.err"
+stdout_log="$basedir/logs/service.log"
+stderr_log="$basedir/logs/service.err"
 
 get_pid() {
     cat "$pid_file"

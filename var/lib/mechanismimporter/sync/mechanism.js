@@ -143,30 +143,28 @@ exports.newMechanism = function(shares, mechanismCode, mechanismName, start, end
     //
     // Update category option combo name and code if needed.
     //
-    //mechanismCo = dhis.getById("categoryOption", mechanismCo.id); // Gets more attributes than get by code.
-    //var expectedComboName = "(" + mechanismCo.name + ")";
-    //var combo = mechanismCo.categoryOptionCombos[0];
-    //if (!combo) {
-    //    combo = [];
-    //    combo.name = expectedComboName;
-    //    combo.code = mechanismCode;
-    //    combo = dhis.add("categoryOptionCombo", combo);
-    //    dhis.addToCollection("categoryOption", mechanismCo, "categoryOptionCombo", combo);
-    //    log.action("New combo: " + util.inspect(combo));
-    //    //dhis.categoryOptionComboUpdate();
-    //    //dhis.removeFromCache("categoryOption", mechanismCo);
-    //    //mechanismCo = dhis.getById("categoryOption", mechanismCo.id); // Gets more attributes than get by code.
-    //    //combo = mechanismCo.categoryOptionCombos[0];
-    //    //log.action("Updated combo: " + util.inspect(combo));
-    //}
-    //else if (!combo.code || combo.code != mechanismCode || !combo.name || combo.name != expectedComboName ) {
-    //    combo.name = expectedComboName;
-    //    combo.code = mechanismCode;
-    //    delete combo.created;
-    //    delete combo.lastUpdated;
-    //    log.action("Updating combo to " + util.inspect(combo));
-    //    dhis.update("categoryOptionCombo", combo);
-    //}
+    mechanismCo = dhis.getById("categoryOption", mechanismCo.id); // Gets more attributes than get by code.
+    var combo = mechanismCo.categoryOptionCombos[0];
+    if (!combo) {
+        combo = {};
+        combo.name = mechanismCo.name;
+        combo.code = mechanismCode;
+        combo.categoryCombo = {id: 'wUpfppgjEza', name: 'Funding Mechanism'};
+        combo.categoryOption = [];
+        combo.categoryOption.push( {id: mechanismCo.id} );
+        combo = dhis.add("categoryOptionCombo", combo);
+        dhis.addToCollection("categoryOption", mechanismCo, "categoryOptionCombo", combo);
+        log.action("New CategoryOptionCombo: " + mechanismCo.name);
+    }
+    else if (!combo.code || combo.code != mechanismCode || !combo.name || combo.name != mechanismCo.name ) {
+        combo.name = mechanismCo.name;
+        combo.code = mechanismCode;
+        combo.categoryCombo = {id: 'wUpfppgjEza', name: 'Funding Mechanism'};
+        combo.categoryOption = [];
+        combo.categoryOption.push( {id: mechanismCo.id} );
+        log.action("Updating CategoryOptionCombo: " + mechanismCo.name);
+        dhis.update("categoryOptionCombo", combo);
+    }
 
     //
     // Add mechanism category option to (if not there already):

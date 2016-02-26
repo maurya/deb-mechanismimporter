@@ -1,3 +1,9 @@
+mechanismimporter (1.0.0-0ubuntu6) trusty; urgency=medium
+
+  * update mechanismimporter 
+
+ -- keybase.io/ryanyates <ryanyates@keybase.io>  Fri, 26 Feb 2016 15:01:07 +0000
+
 mechanismimporter (1.0.0-0ubuntu5) trusty; urgency=medium
 
   * fix log dir for service logs 
