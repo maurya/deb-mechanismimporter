@@ -1,3 +1,9 @@
+mechanismimporter (1.0.0-0ubuntu7) trusty; urgency=low
+
+  * fix typo
+
+ -- keybase.io/ryanyates <ryanyates@keybase.io>  Fri, 26 Feb 2016 19:15:18 +0000
+
 mechanismimporter (1.0.0-0ubuntu6) trusty; urgency=medium
 
   * update mechanismimporter 
