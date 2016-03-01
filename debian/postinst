@@ -20,6 +20,3 @@ npm install --prefix ${MIDIR} properties-reader
 
 # Correct permissions on directory
 chown -R mechanismimporter:mechanismimporter ${MIDIR}
-
-# Add init.d script to startup
-update-rc.d mechanismimporter defaults

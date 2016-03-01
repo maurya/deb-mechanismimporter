@@ -1,2 +1,2 @@
 #!/bin/sh
-service mechanismimporter stop
+stop mechanismimporter
