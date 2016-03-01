@@ -1,3 +1,9 @@
+mechanismimporter (1.0.0-0ubuntu8) trusty; urgency=medium
+
+  * Add upstart script 
+
+ -- keybase.io/ryanyates <ryanyates@keybase.io>  Tue, 01 Mar 2016 15:00:04 +0000
+
 mechanismimporter (1.0.0-0ubuntu7) trusty; urgency=low
 
   * fix typo
