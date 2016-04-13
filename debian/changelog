@@ -1,3 +1,9 @@
+mechanismimporter (1.0.0-0ubuntu10) trusty; urgency=medium
+
+  * remove nodejs-legacy 
+
+ -- keybase.io/ryanyates <ryanyates@keybase.io>  Wed, 13 Apr 2016 15:00:56 +0000
+
 mechanismimporter (1.0.0-0ubuntu9) trusty; urgency=medium
 
   * remove adding init.d on boot and fix prerm script 

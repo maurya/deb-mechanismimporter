@@ -8,5 +8,5 @@ Homepage: http://daitm.org
 
 Package: mechanismimporter
 Architecture: amd64
-Depends: nodejs, npm, nodejs-legacy
+Depends: nodejs, npm
 Description: Mechanism Importer  for CSD
