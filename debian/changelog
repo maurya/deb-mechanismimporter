@@ -1,3 +1,9 @@
+mechanismimporter (1.0.0-0ubuntu11) trusty; urgency=medium
+
+  * issue 209-210 adding mechanism importer sharing flag 
+
+ -- Sri Maurya Kummamuru <maurya@openmrs.org>  Thu, 05 May 2016 15:07:34 +0000
+
 mechanismimporter (1.0.0-0ubuntu10) trusty; urgency=medium
 
   * remove nodejs-legacy 
