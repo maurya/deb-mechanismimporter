@@ -20,6 +20,3 @@ npm install --prefix ${MIDIR} properties-reader
 
 # Correct permissions on directory
 chown -R mechanismimporter:mechanismimporter ${MIDIR}
-
-sudo apt-get install wget
-wget https://github.com/pepfar-datim/OHIE/files/271248/APP_User_Management-dod_only_SqlView.xml.zip
