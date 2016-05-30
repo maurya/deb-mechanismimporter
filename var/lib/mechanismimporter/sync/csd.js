@@ -21,21 +21,21 @@ var mechanismList = [];
 
 var agencies = {};
 var partners = {};
-var countries = {};
 
 var ilrProtocol = 'http';
 var ilrHostname = null;
 var ilrPort = 8984;
 var ilrMechanismPath = '/CSD/getDirectory/DATIM-FactsInfo';
 var ilrOuSearchPath = '/CSD/csr/DATIM-Global/careServicesRequest/urn:ihe:iti:csd:2014:stored-function:organization-search';
+var ilrUserName = 'user';
+var ilrPassword = 'password';
 
-var ilrOuSearch =
-    '<csd:requestParams xmlns:csd="urn:ihe:iti:csd:2013">' +
-    '<csd:codedType code="3" codingScheme="urn:https://www.datim.org/api/organisationUnitLevels" />' +
-    '</csd:requestParams>';
+var configureSharing;
 
 function csdConfig() {
     var propertiesFile = exports.propertiesFile = '/etc/mechanismImporter/mechanismImporter.properties';
+    
+    console.log("propertiesFile:" + propertiesFile);
     var dhisProtocolProperty = 'node.dhis.protocol';
     var dhisHostnameProperty = 'node.dhis.domain';
     var dhisPortProperty = 'node.dhis.port';
@@ -48,6 +48,10 @@ function csdConfig() {
     var ilrPortProperty = 'node.ilr.port';
     var ilrMechanismPathProperty = 'node.ilr.mechanismPath';
     var ilrOuSearchPathProperty = 'node.ilr.ouSearchPath';
+    var ilrUsernameProperty = 'node.ilr.username';
+    var ilrPasswordProperty = 'node.ilr.password';
+
+    var featureConfigureSharingProperty = 'feature.configureSharing';
 
     var logDirectoryProperty = 'log.directory';
     var logMinimumLevelProperty = 'log.minimumLevel';
@@ -56,12 +60,15 @@ function csdConfig() {
     var logMinimumLevel = '1';
 
     config.loadProperties(propertiesFile);
+    
     var dhisProtocol = config.get(dhisProtocolProperty);
     var dhisHostname = config.get(dhisHostnameProperty);
     var dhisPort = config.get(dhisPortProperty);
     var dhisPath = config.get(dhisPathProperty);
     var dhisUsername = config.get(dhisUsernameProperty);
     var dhisPassword = config.get(dhisPasswordProperty);
+    var getIlrUserName  = config.get(ilrUsernameProperty);
+    var getIlrPassword  = config.get(ilrPasswordProperty);
 
     if (!dhisProtocol) {
         dhisProtocol = 'http';
@@ -74,9 +81,11 @@ function csdConfig() {
     var getIlrMechanismPath = config.get(ilrMechanismPathProperty);
     var getIlrOuSearchPath = config.get(ilrOuSearchPathProperty);
 
+    configureSharing = config.get(featureConfigureSharingProperty) ? true : false;
+
     var getLogDirectory = config.get(logDirectoryProperty);
     var getLogMinimumLevel = config.get(logMinimumLevelProperty);
-
+    
     if (getIlrProtocol) {
         ilrProtocol = getIlrProtocol;
     }
@@ -91,6 +100,11 @@ function csdConfig() {
 
     if (getIlrOuSearchPath) {
         ilrOuSearchPath = getIlrOuSearchPath;
+    }
+
+    if (getIlrUserName && getIlrPassword) {
+        ilrUserName = getIlrUserName;
+        ilrPassword = getIlrPassword;
     }
 
     if (getLogDirectory) {
@@ -123,14 +137,14 @@ function csdConfig() {
     rest.setCredentials(dhisProtocol, dhisHostname, dhisPort, dhisPath, dhisUsername, dhisPassword);
 }
 
-function getCsd(method, path, headers, payload, callback) {
+function getCsd(method, path, headers, payload, callback) {    
     var options = {
             method: method,
             host: ilrHostname,
             port: ilrPort,
             path: path,
-            headers: headers,
-            auth: 'user:password'
+            headers: headers,            
+            auth: ilrUserName + ":" + ilrPassword            
     };
 
     var protocol = ilrProtocol == "https" ? https: http;
@@ -170,12 +184,13 @@ function getCsd(method, path, headers, payload, callback) {
 }
 
 function csdToMechanismList( csd ) {
-    var organizations = csd.CSD.organizationDirectory[0]['csd:organization'];
+    var organizations = csd.CSD.organizationDirectory[0]['csd:organization'];    
 
     for (i in organizations) {
         var org = organizations[i];
         log.trace("csdToMechanismList ORG: " + util.inspect(org, { depth: null }));
         var entityId = org['$']['entityID'];
+
         var type = org['csd:codedType'][0]['$']['code'];
         var name = org['csd:primaryName'][0];
         var code = org['csd:otherID'][0]['$']['code'];
@@ -186,13 +201,13 @@ function csdToMechanismList( csd ) {
                 //name = props['d:Name'][0];
                 log.trace("CDD mechanism: " + name + " '" + name.replace(/ - [0-9]*$/, "") + "'");
                 mechanismList.push({
-                    mechanismName: org['csd:otherName'][0],
-                    mechanismCode: props['d:HQMechanismID'][0],
-                    fiscalYear: props['d:FiscalYear'][0],
-                    planningReportingCycle: props['d:PlanningReportingCycle'][0],
-                    agencyName: props['d:FundingAgency'][0],
-                    partnerUuid: props['d:PrimePartner'][0]['$']['entityID'],
-                    countryUuid: props['d:OperatingUnit'][0]['$']['entityID'],
+                    mechanismName: org['csd:otherName'][0].trim(),
+                    mechanismCode: props['d:HQMechanismID'][0].trim(),
+                    fiscalYear: props['d:FiscalYear'][0].trim(),
+                    planningReportingCycle: props['d:PlanningReportingCycle'][0].trim(),
+                    agencyName: props['d:FundingAgency'][0].trim(),
+                    partnerUuid: props['d:PrimePartner'][0]['$']['entityID'].trim(),
+                    countryUuid: props['d:OperatingUnit'][0]['$']['entityID'].trim(),
                     start: props['d:StartDate'][0],
                     end: props['d:EndDate'][0],
                     active: org['csd:record'][0]['$']['status'] == 'Active' ? 1 : 0
@@ -202,57 +217,42 @@ function csdToMechanismList( csd ) {
             case 'partner':
                 log.trace("CSD partner: " + name);
                 partners[entityId] = {
-                    name: name,
-                    code: code
-                }
-                break;
-
-            case '3':
-                log.trace("CSD operating_unit: " + name);
-                countries[entityId] = {
-                    name: name
+                    name: name.trim(),
+                    code: code.trim()
                 }
                 break;
         }
     }
 }
 
-function resolveUuidReferences() {
+function resolveUuidReferences() {    
     for ( i in mechanismList ) {
-        var m = mechanismList[i];
-        var partner = partners[m.partnerUuid];
+        var m = mechanismList[i];       
+        var partner = partners[m.partnerUuid];      
         if (!partner) {
             log.error("Can't find partner with UUID '" + m.partnerUuid + "'");
         }
         m.partnerName = partner.name;
         m.partnerCode = partner.code;
-        country = countries[m.countryUuid];
-        if (!country) {
-            log.error("Can't find country with UUID '" + m.countryUuid + "'");
-        }
-        m.countryName = country.name;
     }
 }
 
 function loadCsd( method, path, contentType, payload ) {
-    log.action(method + " " + ilrProtocol + "://" + ilrHostname + ":" + ilrPort + path);
+    log.action(method + " " + ilrProtocol + "://" + ilrHostname + ":" + ilrPort + path);    
     csd = sync.await(getCsd(method, path, contentType, payload, sync.defer()));
+
     log.debug("Processing " + ilrProtocol + "://" + ilrHostname + ":" + ilrPort + path);
     csdToMechanismList( csd );
+
     log.debug("loadCsd Finished " + ilrProtocol + "://" + ilrHostname + ":" + ilrPort + path);
 }
 
 var main = exports.main = function main() {
     process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"; // Ignore errors from self signed certificates
-    csdConfig();
-    loadCsd("get", ilrMechanismPath, {}, null );
-    loadCsd("post", ilrOuSearchPath, {"Content-Type": "text/xml", "Content-Length": Buffer.byteLength(ilrOuSearch)}, ilrOuSearch);
-    //loadCsd("/apps/FactsInfo-test2.xml");
-    //loadCsd("/apps/datim_global_jan_19_2016.xml");
+    csdConfig();   
+    loadCsd("get", ilrMechanismPath, {}, null );    
     resolveUuidReferences();
-    var sharing = config.get('sharing');
-    log.debug("Sharing setting: " + sharing);
-    mechanisms.sync(sharing, mechanismList);
+    mechanisms.sync(configureSharing, mechanismList);
     log.closeAll();
 }
 

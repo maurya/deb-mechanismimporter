@@ -21,7 +21,7 @@ var getParent = exports.getParent = function(orgUnit) {
     return parent;
 }
 
-// Run once for each country to make sure it's set up.
+// Run once for each country to initialize the user groups for sharing.
 function newCountry(countryName) {
     log.action("Country: " + countryName);
 
@@ -48,15 +48,15 @@ function newCountry(countryName) {
     //
     // Share the deduplication mechanism, COGs, and COGS with country all mechanisms user group.
     //
-    dhis.shareCached("categoryOption", "xEzelmtHWPn", '--------', allMech ); // 00000 De-duplication adjustment
-    dhis.shareCached("categoryOptionGroup", "nzQrpc6Dl58", '--------', allMech ); // Deduplication adjustments
-    dhis.shareCached("categoryOptionGroup", "UwIZeT7Ciz3", '--------', allMech ); // All mechanisms without deduplication
-    dhis.shareCached("categoryOptionGroupSet", "sdoDQv2EDjp", '--------', allMech ); // De-duplication
+    dhis.shareCachedQuietly("categoryOption", "xEzelmtHWPn", '--------', allMech ); // 00000 De-duplication adjustment
+    dhis.shareCachedQuietly("categoryOptionGroup", "nzQrpc6Dl58", '--------', allMech ); // Deduplication adjustments
+    dhis.shareCachedQuietly("categoryOptionGroup", "UwIZeT7Ciz3", '--------', allMech ); // All mechanisms without deduplication
+    dhis.shareCachedQuietly("categoryOptionGroupSet", "sdoDQv2EDjp", '--------', allMech ); // De-duplication
 
     //
     // Share data access user groups with country user administrators.
     //
-    dhis.shareCached("userGroup", ["Data EA access", "Data SI access", "Data SIMS access"], '--------', admins);
+    dhis.shareCachedQuietly("userGroup", ["Data EA access", "Data SI access", "Data SIMS access"], '--------', admins);
 
     //
     // Assign management of country agency user group.
@@ -65,29 +65,19 @@ function newCountry(countryName) {
     dhis.addManagedGroupIfNeededCached(admins, users);
 }
 
-// Get a level 3 organisation unit ("country", more precisely known as a
-// PEPFAR Operational Unit). We have to be careful because at least one
-// country name is also the name of a facility in another country. So we
-// make sure we are returning a level 3 orgUnit under "Global".
+// Get a mechanism's country object. Configure sharing for the country
+// if we should.
 //
-exports.getCountry = function(shares, countryName) {
+exports.getCountry = function(configureSharing, countryName) {
     if (countries[countryName]) {
         return countries[countryName]; // Cached.
     }
-    countryList = dhis.getAllEqual("organisationUnit", countryName, "&fields=id,name,parent");
-    //console.log("getCountry countryList = " + util.inspect(countryList) );
-    for (var i in countryList) {
-        var parent = getParent(countryList[i]);
-        if (parent) {
-            var grandparent = getParent(parent);
-            if (grandparent && grandparent.name == "Global" && grandparent.parent == null) {
-                countries[countryName] = countryList[i];
-                if (shares) {
-                    newCountry(countryName);
-                }
-                return countryList[i];
-            }
+    var country = dhis.getCache("organisationUnit", "name", countryName);
+    if (country) {
+        countries[countryName] = country;
+        if (configureSharing) {
+            newCountry(countryName);
         }
     }
-    return null;
+    return country;
 }

@@ -174,7 +174,7 @@ exports.newPartnerInCountry = function(shares, partnerCode, partnerName, country
     //
     // Share data access user groups with country partner user administrators.
     //
-    dhis.shareCached("userGroup", ["Data EA access", "Data SI access", "Data SIMS access"], '--------', admins);
+    dhis.shareCachedQuietly("userGroup", ["Data EA access", "Data SI access", "Data SIMS access"], '--------', admins);
 
     //
     // Assign management of country partner user group.

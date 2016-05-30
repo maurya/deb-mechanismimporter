@@ -56,44 +56,64 @@ var encode = exports.encode = function(text) {
     return encodeURIComponent(text);
 }
 
-var updateCache = exports.updateCache = function(type, object) {
-    if (object && object.id) {
-        objectCache[ type + "-id-" + object.id ] = object;
-        if ( object.code ) {
-            objectCache[ type + "-code-" + object.code ] = object;
-        }
-        if ( object.name ) {
-            objectCache[ type + "-name-" + object.name ] = object;
-        }
-    } else {
-        log.error("dhis.updateCache: invalid entry - " + type + " " + util.inspect(object));
+exports.clearDhisCache = function() {
+    objectCache = {};
+}
+
+var getKeyCache = exports.getKeyCache = function(type, keyField) {
+    var typeCache = objectCache [ type ];
+    if ( !typeCache ) {
+        typeCache = {};
+        objectCache [ type ] = typeCache;
+    }
+    var keyCache = typeCache [ keyField ];
+    if ( !keyCache ) {
+        keyCache = {};
+        typeCache [ keyField ] = keyCache;
+    }
+    return keyCache;
+}
+
+var putCache = exports.putCache = function(type, keyField, object) {
+    if ( object && object[ keyField ] ) {
+        getKeyCache(type, keyField) [object[keyField]] = object;
+        log.trace("dhis.putCache( " + type + ", " + keyField + ", " + object[keyField] + ")");
     }
 }
 
-var removeNameFromCache = exports.removeNameFromCache = function(type, name) {
-    delete objectCache[ type + "-name-" + name ];
+var getCache = exports.getCache = function(type, keyField, key) {
+    return getKeyCache(type, keyField) [ key ];
+}
+
+var removeKeyFromCache = function(type, keyField, object) {
+    if (object && object [ keyField ]) {
+        var keyCache = getKeyCache(type, keyField);
+        if (keyCache [key]) {
+            delete keyCache[key];
+        }
+    }
+}
+
+var updateCache = function(type, object) {
+    putCache(type, "id", object);
+    putCache(type, "code", object);
+    putCache(type, "name", object);
+    putCache(type, "uuid", object);
 }
 
 var removeFromCache = exports.removeFromCache = function(type, object) {
-    if (object) {
-        if (object.id) { // (update the cache)
-            delete objectCache[type + "-id-" + object.id];
-        }
-        if (object.code) {
-            delete objectCache[type + "-code-" + object.code];
-        }
-        if (object.name) {
-            delete objectCache[type + "-name-" + object.name];
-        }
-    }
+    removeKeyFromCache(type, "id", object);
+    removeKeyFromCache(type, "code", object);
+    removeKeyFromCache(type, "name", object);
+    removeKeyFromCache(type, "uuid", object);
 }
 
 var getById = exports.getById = function(type, id) {
     log.trace("dhis.getById( " + type + ", " + id + ")" );
-    var object = objectCache[ type + "-id-" + id ];
+    var object = getCache(type, "id", id);
 //    log.trace("dhis.getById - object from cache = " + util.inspect( object ));
     if (!object) {
-        object = rest.get("/api/" + type.plural() + "/" + id + ".json?fields=:all");
+        object = rest.getQuietly("/api/" + type.plural() + "/" + id + ".json?fields=:all", true);
         if (object) {
             updateCache(type, object);
         }
@@ -102,7 +122,7 @@ var getById = exports.getById = function(type, id) {
 };
 
 var getByCode = exports.getByCode = function(type, code) {
-    var object = objectCache[ type + "-code-" + code ];
+    var object = getCache(type, "code", code);
     if (!object) {
         var result = rest.get("/api/" + type.plural() + ".json?filter=code:eq:" + encode(code) + "&fields=:all");
         object = result[type.plural()].length == 0 ? null : result[type.plural()][0];
@@ -114,14 +134,13 @@ var getByCode = exports.getByCode = function(type, code) {
     return object;
 };
 
-var getByOperatorOnName = function(operator, type, name) {
-    log.trace("dhis.getByOperatorOnName (" + operator + ", " + type + ", " + name + ")");
-    var object = objectCache[ type + "-name-" + name ];
+var getByOperatorOnName = function(operator, type, name, fields) {
+    log.trace("dhis.getByOperatorOnName (" + operator + ", " + type + ", " + name + (fields ? (", '" + fields + "'") : "") + ")");
+    var object = fields ? undefined : getCache(type, "name", name);
     if (!object) {
-        result = rest.get("/api/" + type.plural() + ".json?filter=name:" + operator + ":" + encode(name) + "&fields=:all");
-        log.trace("dhis.getByOperatorOnName Result: " + util.inspect(result));
+        result = rest.get("/api/" + type.plural() + ".json?filter=name:" + operator + ":" + encode(name) + "&fields=" + (fields ? fields : ":all") );
+        log.trace("dhis.getByOperatorOnName Result: " + util.inspect(result, { depth: 8 } ) );
         object = result[type.plural()].length == 0 ? null : result[type.plural()][0];
-        log.trace("dhis.getByOperatorOnName Object: " + util.inspect(object));
     }
     if (object) {
         updateCache(type, object);
@@ -129,26 +148,28 @@ var getByOperatorOnName = function(operator, type, name) {
     return object;
 };
 
-var getByName = exports.getByName = function(type, name) {
-    var object = getByOperatorOnName("eq", type, name); // Doesn't match some names with special characters in them, like maybe ':'.
+var getByName = exports.getByName = function(type, name, fields) {
+    log.trace("dhis.getByName (" + type + ", " + name + (fields ? (", '" + fields + "'") : "") + ")");
+    var object = getByOperatorOnName("eq", type, name, fields); // Doesn't match some names with special characters in them, like maybe ':'.
     if (!object) {
-        object = getByOperatorOnName("like", type, name); // Works better on names with some special characters.
+        object = getByOperatorOnName("like", type, name, fields); // Works better on names with some special characters.
     }
     return object;
 };
 
-var getByNameLike = exports.getByNameLike = function(type, name) {
-    return getByOperatorOnName("like", type, name);
+var getByNameLike = exports.getByNameLike = function(type, name, fields) {
+    log.trace("dhis.getByNameLike (" + type + ", " + name + (fields ? (", '" + fields + "'") : "") + ")");
+    return getByOperatorOnName("like", type, name, fields);
 };
 
 var getByNameOrCodeOrId = exports.getByNameOrCodeOrId = function(type, obj) {
-    var object = objectCache[type + "-name-" + obj];
+    var object = getCache(type, "name", obj);
     if ( !object ) {
-        object = objectCache[type + "-code-" + obj];
+        object = getCache(type, "code", obj);
         if (!object) {
-            object = objectCache[type + "-id-" + obj];
+            object = getCache(type, "id", obj);
             if (!object) {
-                object = getByName(type, obj.name ? obj.name : obj);
+                object = getByName(type, obj.name ? obj.name : obj, undefined);
                 if (!object) {
                     object = getByCode(type, obj.code ? obj.code : obj);
                     if (!object && ( obj.id || ( (typeof obj == 'string' || obj instanceof String) && /^[a-zA-Z]{1}[a-zA-Z0-9]{10}$/.test(obj) ) )) {
@@ -190,32 +211,46 @@ var getObject = function(type, reference, quietly) {
 
 var getAllInPath = exports.getAllInPath = function(type, path) {
     var result = rest.get("/api/" + path);
+    //var all = result[type.plural()]
+    if (!result[type.plural()]) {
+        log.error("dhis.getAllInPath can't find array of " + type + " from '" + path + "' in result: " + util.inspect(result, {depth: 8}));
+        return undefined;
+    }
     var objectArray = result[type.plural()].length == 0 ? null : result[type.plural()];
 //    log.info( "dhis.getAllInPath "; ( objectArray == null ? "didn't find " : "found " + result[type.plural()].length + " " ) + type + " " + path );
     if (objectArray) {
         for (var i = 0; i < objectArray.length; i++) {
-            objectCache[ type + "-name-" + objectArray[i].name ] = objectArray[i];
+            updateCache(type, objectArray[i]);
         }
     }
     return objectArray;
 };
 
-exports.getAll = function( type, options ) {
+var getAll = exports.getAll = function( type, options ) {
     return getAllInPath(type, type.plural() + ".json?paging=none" + (options ? options : ""));
 }
 
-exports.getAllEqual = function( type, nameEquals, options ) {
+var getAllEqual = exports.getAllEqual = function( type, nameEquals, options ) {
     return getAllInPath(type, type.plural() + ".json?paging=none&filter=name:eq:" + encode(nameEquals) + (options ? options : ""));
 }
 
-exports.getAllLike = function( type, nameLike, options ) {
+var getAllLike = exports.getAllLike = function( type, nameLike, options ) {
     return getAllInPath(type, type.plural() + ".json?paging=none&filter=name:like:" + encode(nameLike) + (options ? options : ""));
+}
+
+var preloadCache = exports.preloadCache = function(type, fields, filter1, filter2) {
+    var options = "&fields=" + encode(fields)
+        + ( filter1 ? ( "&filter=" + encode(filter1) ) : "" )
+        + ( filter2 ? ( "&filter=" + encode(filter2) ) : "" );
+    log.info("dhis.preloadCache: " + type + " " + options);
+    var objects = getAll(type, options);
+    log.trace("dhis.preloadCache cached: " + util.inspect(objects, {depth: 8}));
 }
 
 var update = exports.update = function(type, object) {
     updateCache(type, object);
     delete object.href; // Delete href in case it is there -- update doesn't seem to work with it present(!)
-    return rest.put( "/api/" + type.plural() + "/" + object.id, object);
+    return rest.put( "/api/" + type.plural() + "/" + object.id + "?preheatCache=false", object);
 }
 
 var rename = exports.rename = function(type, reference, newName, newShortName) {
@@ -225,7 +260,7 @@ var rename = exports.rename = function(type, reference, newName, newShortName) {
         return;
     }
     log.debug("dhis.rename " + type + " '" + object.name + "' to '" + newName + "'");
-    removeFromCache(type, object);
+    removeKeyFromCache(type, "name", object.name);
     object.name = newName.substring(0, MAX_NAME_LENGTH);
     if (newShortName) {
         object.shortName = newShortName.substring(0, MAX_SHORT_NAME_LENGTH);
@@ -248,7 +283,7 @@ var fixShortName = exports.fixShortName = function(type, reference) {
 var add = exports.add = function(type, object) {
     log.debug("dhis.add " + type + " " + ( object.name ? object.name : util.inspect(object) ) );
     var status = rest.post( "/api/" + type.plural(), object);
-    var newObject = getByName(type, object.name); // (Assume what we added has a name!)
+    var newObject = getByName(type, object.name, undefined); // (Assume what we added has a name!)
 //    if (!status.lastImported) {
 //        log.error("dhis.add Couldn't add " + type + " " + ( object.name ? object.name : util.inspect(object) ));
 //        return status;
@@ -290,8 +325,8 @@ exports.delete = function(type, reference) {
     }
 }
 
-var addIfNotExists = exports.addIfNotExists = function(type, obj) {
-    var existing = getByName(type, obj.name);
+var addIfNotExists = exports.addIfNotExists = function(type, obj, fields) {
+    var existing = getByName(type, obj.name, fields);
     if (existing) {
         return existing;
     }
@@ -300,7 +335,7 @@ var addIfNotExists = exports.addIfNotExists = function(type, obj) {
 
 var addOrUpdate = exports.addOrUpdate = function(type, obj) {
     obj.name = obj.name.substring(0,229); // Truncate names that are too long.
-    var existing = getByName(type, obj.name);
+    var existing = getByName(type, obj.name, undefined);
 //    log.trace("dhis.addOrUpdate " + type + " '" + obj.name + "' - " + util.inspect( existing ));
     if (existing) {
 //        log.trace("dhis.addOrUpdate " + type + " '" + obj.name + "' already exists: " + util.inspect(existing) );
@@ -310,7 +345,7 @@ var addOrUpdate = exports.addOrUpdate = function(type, obj) {
                 //log.trace("dhis.addOrUpdate property " + property + " " + obj[ property ] + " != existing " + property + " " + existing[ property ] );
                 updateNeeded = true;
                 if (property == "name") {
-                    removeNameFromCache(type, existing[ property ]);
+                    removeKeyFromCache(type, "name", existing);
                     break;
                 }
             }
@@ -364,7 +399,7 @@ var addToCollection = exports.addToCollection = function(type, objectReference, 
 //    log.trace("dhis.addToCollection " + collection + " '" + util.inspect(addend) + "' to " + type + " '" + util.inspect(object) + "'" );
 //    log.trace("adding " + collection + " '" + addend.name + "' to " + type + " '" + object.name + "'" );
     var result = rest.post( "/api/" + type.plural() + "/" + object.id + "/" + collection.plural() + "/" + addend.id);
-    log.action("Adding " + collection + " " + addendType + " '" + addend.name + "' to " + type + " '" + object.name + "'" );
+    log.action("Adding " + collection + (collection == addendType ? "" : " " + addendType ) + " '" + addend.name + "' to " + type + " '" + object.name + "'" );
 }
 
 var addToCollectionIfExistsIfNeeded = exports.addToCollectionIfExistsIfNeeded = function(type, objectReference, collectionAndAddendType, addendReferences) {
@@ -405,7 +440,7 @@ var addToCollectionIfNeeded = exports.addToCollectionIfNeeded = function(type, o
 
 // This is a cached (delayed write) version of adding to a collection, for performance reasons.
 //
-var addToCollectionIfNeededCached = exports.addToCollectionIfNeededCached = function(type, objectReference, collectionAndAddendType, addendReference) {
+function addToCollectionIfNeededCachedOne(type, objectReference, collectionAndAddendType, addendReference) {
     var collection = collectionAndAddendType.split("/")[0];
     var addendType = collectionAndAddendType.split("/").length > 1 ? collectionAndAddendType.split("/")[1] : collection;
     var object = getObject(type, objectReference);
@@ -428,6 +463,13 @@ var addToCollectionIfNeededCached = exports.addToCollectionIfNeededCached = func
     log.trace("dhis.addToCollectionIfNeededCached " + key + " " + addend.id);
 }
 
+var addToCollectionIfNeededCached = exports.addToCollectionIfNeededCached = function(type, objectReference, collectionAndAddendType, addends) {
+    var addendArray = [].concat(addends);
+    for (var i in addendArray) {
+        addToCollectionIfNeededCachedOne(type, objectReference, collectionAndAddendType, addendArray[i]);
+    }
+}
+
 function flushAddToCollectionCache() {
     for (var cache in pendingAddToCollection) {
         if (pendingAddToCollection.hasOwnProperty(cache)) {
@@ -444,12 +486,12 @@ function flushAddToCollectionCache() {
     pendingAddToCollection = {};
 }
 
-exports.addManagedGroupIfNeededCached = function(objectReference, addendReference){
-    log.trace("dhis.addManagedGroupIfNeeded " + objectReference + " -> " + addendReference );
-    addToCollectionIfNeededCached("userGroup", objectReference, "managedGroup/userGroup", addendReference);
+exports.addManagedGroupIfNeededCached = function(objectReference, addends){
+    log.trace("dhis.addManagedGroupIfNeeded " + objectReference + " -> " + addends );
+    addToCollectionIfNeededCached("userGroup", objectReference, "managedGroup/userGroup", addends);
 }
 
-var removeFromCollection = exports.removeFromCollection = function(type, objectReference, collectionAndAddendType, addendReference) {
+function removeFromCollectionOne(type, objectReference, collectionAndAddendType, addendReference) {
     var collection = collectionAndAddendType.split("/")[0];
     var addendType = collectionAndAddendType.split("/").length > 1 ? collectionAndAddendType.split("/")[1] : collection;
     var object = getObject(type, objectReference);
@@ -458,6 +500,13 @@ var removeFromCollection = exports.removeFromCollection = function(type, objectR
 //    log.trace("removing " + collection + " '" + addend.name + "' to " + type + " '" + object.name + "'" );
     log.debug("dhis.removeFromCollection " + collection + " " + addendType + " '" + addend.name + "' to " + type + " '" + object.name + "'" );
     var result = rest.delete( "/api/" + type.plural() + "/" + object.id + "/" + collection.plural() + "/" + addend.id);
+}
+
+var removeFromCollection = exports.removeFromCollection = function(type, objectReference, collectionAndAddendType, addends) {
+    var addendArray = [].concat(addends);
+    for (var i in addendArray) {
+        removeFromCollectionOne(type, objectReference, collectionAndAddendType, addendArray[i]);
+    }
 }
 
 var removeAllManagedByGroups = exports.removeAllManagedByGroups = function(groupReference) {
@@ -592,10 +641,12 @@ var unshareIfExists = exports.unshareIfExists = function(type, from, to) {
     }
 }
 
-function shareOneCached(type, fromReference, publicAccess, to, replaceFlag) {
-    var from = getObject(type, fromReference);
+function shareOneCached(type, fromReference, publicAccess, to, replaceFlag, quietly) {
+    var from = getObject(type, fromReference, quietly);
     if (!from || !from.id) {
-        log.error("dhis.shareOneCached can't find " + type + " to share " + util.inspect(fromReference));
+        if (!quietly) {
+            log.error("dhis.shareOneCached can't find " + type + " to share " + util.inspect(fromReference));
+        }
         return;
     }
     var key = type + "/" + from.id + "/" + publicAccess;
@@ -611,12 +662,15 @@ function shareOneCached(type, fromReference, publicAccess, to, replaceFlag) {
     for (var i in toArray) {
         var toGroup = getObject("userGroup", toArray[i].group ? toArray[i].group : toArray[i]);
         if (toGroup == undefined || toGroup.id == undefined) {
-            log.error("dhis.shareOneCached can't find shareTo userGroup " + util.inspect(toArray[i]));
-            return;
+            if (!quietly) {
+                log.error("dhis.shareOneCached can't find shareTo userGroup " + util.inspect(toArray[i]));
+                return;
+            }
+        } else {
+            var access = toArray[i].groupAccess ? toArray[i].groupAccess : "r-------";
+            cache[toGroup.id] = access;
+            log.debug("dhis.shareOneCached " + type + " '" + from.name + "' shared with '" + toGroup.name + "' access '" + access + "'");
         }
-        var access = toArray[i].groupAccess ? toArray[i].groupAccess : "r-------";
-        cache[toGroup.id] = access;
-        log.debug("dhis.shareOneCached " + type + " " + from.name + "' shared with '" + toGroup.name + "' access '" + access + "'");
     }
 }
 
@@ -632,14 +686,21 @@ function shareOneCached(type, fromReference, publicAccess, to, replaceFlag) {
 var shareCached = exports.shareCached = function(type, from, publicAccess, to) {
     var fromArray = [].concat(from);
     for (var i in fromArray) {
-        shareOneCached(type, fromArray[i], publicAccess, to, false);
+        shareOneCached(type, fromArray[i], publicAccess, to, false, false);
+    }
+}
+
+var shareCachedQuietly = exports.shareCachedQuietly = function(type, from, publicAccess, to) {
+    var fromArray = [].concat(from);
+    for (var i in fromArray) {
+        shareOneCached(type, fromArray[i], publicAccess, to, false, true);
     }
 }
 
 var shareCachedReplace = exports.shareCachedReplace = function(type, from, publicAccess, to) {
     var fromArray = [].concat(from);
     for (var i in fromArray) {
-        shareOneCached(type, fromArray[i], publicAccess, to, true);
+        shareOneCached(type, fromArray[i], publicAccess, to, true, false);
     }
 }
 
@@ -689,8 +750,4 @@ exports.flushCaches = function() {
 
     log.action("Flushing the sharing pending cache.");
     flushShareCache();
-}
-
-exports.clearDhisCache = function() {
-    objectCache = {};
 }

@@ -20,7 +20,7 @@ var hostname = process.argv[2]; // Host name - First arg after javascript file n
 var username = process.argv[3]; // Username - Second arg after javascript file name (unless overridden)
 var password = process.argv[4]; // Password - Third arg after javascript file name (unless overridden)
 var protocol = "https";
-var serverPort = "80";
+var serverPort = "443";
 var serverPath = "";
 
 exports.setCredentials = function(setProtocol, setHostname, setPort, setPath, setUsername, setPassword) {
@@ -38,15 +38,15 @@ exports.setCredentials = function(setProtocol, setHostname, setPort, setPath, se
     password = setPassword;
 }
 
-function commonRest(method, path, requestObj, callback) {
+function commonRest(method, path, requestObj, quietly, callback) {
 
     var servers = {
         local: {
             protocol: http,
             options: {
                 host: 'localhost',
-                port: 8081,
-                path: "/dhis1" + path
+                port: 8084,
+                path: "/dhis4" + path
             }
         },
         debug: {
@@ -140,9 +140,11 @@ function commonRest(method, path, requestObj, callback) {
             }
             if (result.statusCode != 200 && result.statusCode != 204)
             {
-                log.error("Unexpected status code " + result.statusCode + " for " + method + " " + path + (requestJson == null ? "" : " " + requestJson) + "\n"
-                + responseBody + "\n"
-                + curl );
+                if (!quietly || result.statusCode != 404) {
+                    log.error("Unexpected status code " + result.statusCode + " for " + method + " " + path + (requestJson == null ? "" : " " + requestJson) + "\n"
+                        + responseBody + "\n"
+                        + curl);
+                }
                 if ( callback != null && callback != undefined ) {
 //                log.trace("commonRest calling back with " + util.inspect(obj));
                     callback(null, obj);
@@ -196,11 +198,11 @@ function commonRest(method, path, requestObj, callback) {
 
 commonRest = sync(commonRest);
 
-function syncRest(method, path, requestObj) {
+function syncRest(method, path, requestObj, quietly) {
     var result;
     var retryCount = 10;
     do {
-        result = sync.await(commonRest(method, path, requestObj, sync.defer()));
+        result = sync.await(commonRest(method, path, requestObj, quietly, sync.defer()));
     } while ( result == "Error" && retryCount-- > 0 ); // Retry on connection error.
     if (result == "FatalError") {
         common.printStackTrace();
@@ -210,25 +212,30 @@ function syncRest(method, path, requestObj) {
 
 exports.get = function(path) {
     log.trace("+++GET: " + path);
-    return syncRest( 'get', path, null )
+    return syncRest( 'get', path, null, false )
+}
+
+exports.getQuietly = function(path, quietly) {
+    log.trace("+++GET: " + path);
+    return syncRest( 'get', path, null, quietly )
 }
 
 exports.put = function(path, requestObj) {
     log.trace("+++PUT: " + path /* + (requestObj ? " " + util.inspect(requestObj) : "") */ );
-    return syncRest( 'put', path, requestObj )
+    return syncRest( 'put', path, requestObj, false )
 }
 
 exports.post = function(path, requestObj) {
     log.trace("+++POST: " + path /* + (requestObj ? " " + util.inspect(requestObj) : "") */ );
-    return syncRest( 'post', path, requestObj )
+    return syncRest( 'post', path, requestObj, false )
 }
 
 exports.patch = function(path, requestObj) {
     log.trace("+++PATCH: " + path /* + (requestObj ? " " + util.inspect(requestObj) : "") */ );
-    return syncRest( 'patch', path, requestObj )
+    return syncRest( 'patch', path, requestObj, false )
 }
 
 exports.delete = function(path) {
     log.trace("+++DELETE: " + path);
-    return syncRest( 'delete', path, null )
+    return syncRest( 'delete', path, null, false )
 }

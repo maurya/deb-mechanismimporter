@@ -17,7 +17,8 @@ function getMechanismCountry(mechanismCo) {
 }
 
 function getMechanismCountryName(mechanismCo) {
-    return getMechanismCountry(mechanismCo) ? getMechanismCountry(mechanismCo).name : "";
+    var country = getMechanismCountry(mechanismCo);
+    return country ? dhis.getById("organisationUnit", country.id).name : "";
 }
 
 function getMechanismUserGroupName(mechanismCo) {
@@ -28,36 +29,33 @@ function removeMechanismCog(mechanismCo, cog) {
     dhis.removeFromCollection("categoryOptionGroup", cog, "categoryOption", mechanismCo);
 }
 
-function changeMechanismName(shares, mechanismCo, mechanismCoName) {
-    log.action("Renaming mechanism " + mechanismCo.code + " from '" + mechanismCo.name + "' to '" + mechanismCoName + "'");
-    dhis.removeNameFromCache("categoryOption", mechanismCo.name);
-    if ( shares ) {
-        var mechanismGroup = dhis.getByName("userGroup", getMechanismUserGroupName(mechanismCo));
-        mechanismCo.name = mechanismCoName;
-        mechanismCo.shortName = mechanismCoName.substring(0, dhis.MAX_SHORT_NAME_LENGTH);
-        dhis.update("categoryOption", mechanismCo);
-        if (mechanismGroup) {
-            dhis.removeNameFromCache("userGroup", mechanismGroup.name);
-            mechanismGroup.name = getMechanismUserGroupName(mechanismCo);
-            dhis.update("userGroup", mechanismGroup);
-        }
+function changeMechanismName(configureSharing, mechanismCo, newMechanismCoName) {
+    log.action("Renaming mechanism " + mechanismCo.code + " from '" + mechanismCo.name + "' to '" + newMechanismCoName + "'");
+    var mechanismGroup = undefined;
+    if ( configureSharing ) {
+        mechanismGroup = dhis.getByName("userGroup", getMechanismUserGroupName(mechanismCo));
+    }
+    dhis.rename("categoryOption", mechanismCo, newMechanismCoName, newMechanismCoName );
+    if (mechanismGroup) {
+        newMechanismGroupName = getMechanismUserGroupName(mechanismCo);
+        dhis.rename("userGroup", mechanismGroup, newMechanismGroupName );
     }
 }
 
-function removeMechanismAgency(shares, mechanismCo, cog) {
+function removeMechanismAgency(configureSharing, mechanismCo, cog) {
     log.action("Removing Agency " + cog.name + " from mechanism '" + mechanismCo.name + "'");
     removeMechanismCog(mechanismCo, cog.id);
-    if ( shares ) {
+    if ( configureSharing ) {
         dhis.unshareIfExists("userGroup", getMechanismUserGroupName(mechanismCo), [
             "Global Agency " + cog.name + " all mechanisms",
             "OU " + getMechanismCountryName(mechanismCo) + " Agency " + cog.name + " all mechanisms"]);
     }
 }
 
-function removeMechanismPartner(shares, mechanismCo, cog) {
+function removeMechanismPartner(configureSharing, mechanismCo, cog) {
     log.action("Removing Partner " + cog.code + " from mechanism '" + mechanismCo.name + "'");
     removeMechanismCog(mechanismCo, cog.id);
-    if ( shares ) {
+    if ( configureSharing ) {
         dhis.unshareIfExists("categoryOptionGroup", cog.code, getMechanismUserGroupName(mechanismCo));
         var partnerCode = cog.code ? cog.code.split("_")[1] : "";
         dhis.unshareIfExists("userGroup", getMechanismUserGroupName(mechanismCo), [
@@ -66,29 +64,30 @@ function removeMechanismPartner(shares, mechanismCo, cog) {
     }
 }
 
-function removeNonAssignedCogs(shares, mechanismCo, partnerCode, agencyCode) {
+function removeNonAssignedCogs(configureSharing, mechanismCo, partnerCode, agencyCode) {
     for (var i in mechanismCo.categoryOptionGroups) {
         var cogProperty = mechanismCo.categoryOptionGroups[i];
         if (!cogProperty.code || (cogProperty.code != partnerCode && cogProperty.code != agencyCode && cogProperty.code != "ALL_MECH_WO_DEDUP")) {
             log.trace("removeNonAssignedCogs not " + partnerCode + " or " + agencyCode + " = " + util.inspect(cogProperty));
             var cog = dhis.getById("categoryOptionGroup", cogProperty.id);
             if (cog.categoryOptionGroupSet && cog.categoryOptionGroupSet.name == "Funding Agency") {
-                removeMechanismAgency(shares, mechanismCo, cog);
+                removeMechanismAgency(configureSharing, mechanismCo, cog);
             } else if (cog.categoryOptionGroupSet && cog.categoryOptionGroupSet.name == "Implementing Partner") {
-                removeMechanismPartner(shares, mechanismCo, cog);
+                removeMechanismPartner(configureSharing, mechanismCo, cog);
             }
         }
     }
 }
 
-function changeMechanismCountry(shares, mechanismCo, countryName, partnerCode) {
+function changeMechanismCountry(configureSharing, mechanismCo, countryName, partnerCode) {
     // If mechanism is changing country, just delete the mechanism user group
     // so all users are dropped as well (since the current user members may
     // include in-country users.)
     //
     // The group will be recreated in the new country.
     log.action("Changing Country from " + getMechanismCountryName(mechanismCo) + " to " + countryName + " for mechanism '" + mechanismCo.name + "'");
-    if ( shares ) {
+    log.action("Mechanism: " + util.inspect(mechanismCo, {depth: 8}));
+    if ( configureSharing ) {
         var group = dhis.getByName("userGroup", getMechanismUserGroupName(mechanismCo));
         if (group) {
             dhis.removeAllManagedByGroups(group);
@@ -99,7 +98,7 @@ function changeMechanismCountry(shares, mechanismCo, countryName, partnerCode) {
         }
     }
 
-    var country = orgunit.getCountry(shares, countryName);
+    var country = orgunit.getCountry(configureSharing, countryName);
     mechanismCo.organisationUnits = [ { name: country.name, id: country.id } ];
     dhis.update("categoryOption", mechanismCo);
 }
@@ -111,7 +110,7 @@ function changeMechanismDates(mechanismCo, start, end) {
     dhis.update("categoryOption", mechanismCo);
 }
 
-exports.newMechanism = function(shares, mechanismCode, mechanismName, start, end, partnerCode, partnerName, agencyName, countryName, country) {
+exports.newMechanism = function(configureSharing, mechanismCode, mechanismName, start, end, partnerCode, partnerName, agencyName, countryName, country) {
     log.info("Mechanism: " + countryName + " " + agencyName + " " + partnerCode + " " + mechanismCode + "-" + mechanismName);
 
     dhis.clearHibernateCache(); // Try to avoid hibernate cache corruption issues.
@@ -124,12 +123,12 @@ exports.newMechanism = function(shares, mechanismCode, mechanismName, start, end
     var mechanismCo = dhis.getByCode("categoryOption", mechanismCode);
     if (mechanismCo != null) {
         if (mechanismCo.name != mechanismCoName) {
-            changeMechanismName(shares, mechanismCo, mechanismCoName);
+            changeMechanismName(configureSharing, mechanismCo, mechanismCoName);
         }
-        removeNonAssignedCogs(shares, mechanismCo, "Partner_" + partnerCode, "Agency_" + agencyName);
+        removeNonAssignedCogs(configureSharing, mechanismCo, "Partner_" + partnerCode, "Agency_" + agencyName);
         // (Must remove any non-assigned partners or agencies before changing country.)
         if (getMechanismCountry(mechanismCo) && getMechanismCountryName(mechanismCo) != countryName) {
-            changeMechanismCountry(shares, mechanismCo, countryName, partnerCode);
+            changeMechanismCountry(configureSharing, mechanismCo, countryName, partnerCode);
         }
         if (mechanismCo.startDate != start || mechanismCo.endDate != end) {
             changeMechanismDates(mechanismCo, start, end);
@@ -138,32 +137,6 @@ exports.newMechanism = function(shares, mechanismCode, mechanismName, start, end
         log.action("Adding mechanism " + mechanismCoName );
         mechanismCo = dhis.addOrUpdatePrivateWithShortName("categoryOption",
             { code: mechanismCode, name: mechanismCoName, startDate: start, endDate: end, organisationUnits: [ { name: country.name, id: country.id } ] });
-    }
-
-    //
-    // Update category option combo name and code if needed.
-    //
-    mechanismCo = dhis.getById("categoryOption", mechanismCo.id); // Gets more attributes than get by code.
-    var combo = mechanismCo.categoryOptionCombos[0];
-    if (!combo) {
-        combo = {};
-        combo.name = mechanismCo.name;
-        combo.code = mechanismCode;
-        combo.categoryCombo = {id: 'wUpfppgjEza', name: 'Funding Mechanism'};
-        combo.categoryOption = [];
-        combo.categoryOption.push( {id: mechanismCo.id} );
-        combo = dhis.add("categoryOptionCombo", combo);
-        dhis.addToCollection("categoryOption", mechanismCo, "categoryOptionCombo", combo);
-        log.action("New CategoryOptionCombo: " + mechanismCo.name);
-    }
-    else if (!combo.code || combo.code != mechanismCode || !combo.name || combo.name != mechanismCo.name ) {
-        combo.name = mechanismCo.name;
-        combo.code = mechanismCode;
-        combo.categoryCombo = {id: 'wUpfppgjEza', name: 'Funding Mechanism'};
-        combo.categoryOption = [];
-        combo.categoryOption.push( {id: mechanismCo.id} );
-        log.action("Updating CategoryOptionCombo: " + mechanismCo.name);
-        dhis.update("categoryOptionCombo", combo);
     }
 
     //
@@ -181,7 +154,7 @@ exports.newMechanism = function(shares, mechanismCode, mechanismName, start, end
     //
     // Unless we are doing sharing, we're done.
     //
-    if ( !shares ) {
+    if ( !configureSharing ) {
         return;
     }
 

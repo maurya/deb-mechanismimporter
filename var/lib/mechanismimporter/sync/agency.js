@@ -11,10 +11,12 @@ var dhis = require('../common/dhis.js');
 var log = require('../common/log.js');
 var common = require('../common/common.js');
 
+var util = require('util');
+
 var agenciesGlobal = {};
 var agenciesInCountry = {};
 
-var newAgencyGlobal = function(shares, agencyName) {
+var newAgencyGlobal = function(configureSharing, agencyName) {
 
     //
     // Check if we have already processed this agency at the global level.
@@ -61,7 +63,7 @@ var newAgencyGlobal = function(shares, agencyName) {
     //
     // Unless we are doing sharing, we're done.
     //
-    if ( !shares ) {
+    if ( !configureSharing ) {
         return agencyCog;
     }
 
@@ -96,7 +98,7 @@ var newAgencyGlobal = function(shares, agencyName) {
     //
     // Share data access user groups with global agency user administrators.
     //
-    dhis.shareCached("userGroup", ["Data EA access", "Data SI access", "Data SIMS access"], '--------', admins);
+    dhis.shareCachedQuietly("userGroup", ["Data EA access", "Data SI access", "Data SIMS access"], '--------', admins);
 
     //
     // Assign management of global agency user group.
@@ -107,7 +109,7 @@ var newAgencyGlobal = function(shares, agencyName) {
     return agencyCog;
 }
 
-exports.newAgencyInCountry = function(shares, agencyName, countryName) {
+exports.newAgencyInCountry = function(configureSharing, agencyName, countryName) {
 
     //
     // Check if we have already processed this agency for this country.
@@ -119,14 +121,14 @@ exports.newAgencyInCountry = function(shares, agencyName, countryName) {
     //
     // Process this agency at the global level if needed.
     //
-    var agencyCog = newAgencyGlobal(shares, agencyName);
+    var agencyCog = newAgencyGlobal(configureSharing, agencyName);
 
     log.info("Agency in " + countryName + ": " + agencyName);
 
     //
     // Unless we are doing sharing, we're done.
     //
-    if ( !shares ) {
+    if ( !configureSharing ) {
         return;
     }
 
@@ -162,7 +164,7 @@ exports.newAgencyInCountry = function(shares, agencyName, countryName) {
     //
     // Share data access user groups with country agency user administrators.
     //
-    dhis.shareCached("userGroup", ["Data EA access", "Data SI access", "Data SIMS access"], '--------', admins);
+    dhis.shareCachedQuietly("userGroup", ["Data EA access", "Data SI access", "Data SIMS access"], '--------', admins);
 
     //
     // Assign management of country agency user group.
@@ -176,58 +178,4 @@ exports.newAgencyInCountry = function(shares, agencyName, countryName) {
     // Remember that we have processed this agency at the country level.
     //
     agenciesInCountry[countryName + "-agency-" + agencyName] = true;
-}
-
-function assignAgencyToManagePartner(countryName, partnerCode, partnerName, agencyName) {
-    var agencyGroup = "OU " + countryName + " Agency " + agencyName + " user administrators";
-    var partnerGroup = "OU " + countryName + " Partner " + partnerCode + " users - " + partnerName;
-    log.action("Assigning agency group '" + agencyGroup + "' to manage partner group '" + partnerGroup + "'");
-    dhis.addManagedGroupIfNeededCached(agencyGroup, partnerGroup);
-    dhis.shareCached("userGroup",
-        [
-            "OU " + countryName + " Partner " + partnerCode + " users - " + partnerName,
-            "OU " + countryName + " Partner " + partnerCode + " user administrators - " + partnerName,
-            "OU " + countryName + " Partner " + partnerCode + " all mechanisms - " + partnerName
-        ],
-        null,
-        "OU " + countryName + " Agency " + agencyName + " user administrators");
-}
-
-function removeParterFromAllCountryAgencyManagement(countryName, partnerCode, partnerName) {
-    log.action("Removing all " + countryName + " agency management for partner " + " " + partnerCode + " " + partnerName);
-    group = dhis.getByName("userGroup", "OU " + countryName + " Partner " + partnerCode + " users - " + partnerName );
-    if (group) {
-        for (var i in group.managedByGroups) {
-            var managedByGroup = group.managedByGroups[i];
-            if (managedByGroup.name.match(/^Global OU .* Agency .* user administrators$/)) {
-                log.action("Removing partner group '" + group.name + "' from agency group management '" + managedByGroup.name + "'");
-                removeFromCollection("userGroup", managedByGroup, "managedGroups/userGroups", group);
-                dhis.unshareIfExists("userGroup",
-                    [
-                        "OU " + countryName + " Partner " + partnerCode + " users - " + partnerName,
-                        "OU " + countryName + " Partner " + partnerCode + " user administrators - " + partnerName,
-                        "OU " + countryName + " Partner " + partnerCode + " all mechanisms - " + partnerName
-                    ],
-                    "OU " + countryName + " Agency " + agencyName + " user administrators");
-            }
-        }
-    }
-}
-
-exports.configureAgenciesManagingPartners = function(countryPartnerAgencies, partnerNames) {
-    for (var countryName in countryPartnerAgencies) {
-        if (countryPartnerAgencies.hasOwnProperty(countryName)) {
-            var partnerCodes = countryPartnerAgencies[countryName];
-            for (var partnerCode in partnerCodes) {
-                if (partnerCodes.hasOwnProperty(partnerCode)) {
-                    var agencies = common.propertyArray(partnerCodes[partnerCode]);
-                    if (agencies.length == 1) {
-                        assignAgencyToManagePartner(countryName, partnerCode, partnerNames[partnerCode], agencies[0]);
-                    } else {
-                        removeParterFromAllCountryAgencyManagement(countryName, partnerCode, partnerNames[partnerCode]);
-                    }
-                }
-            }
-        }
-    }
 }
