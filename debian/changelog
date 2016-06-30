@@ -1,3 +1,9 @@
+mechanismimporter (1.0.0-0ubuntu16) trusty; urgency=medium
+
+  * Adding Latest version of Mechanism importer to solve #195
+
+ -- Sri Maurya Kummamuru <maurya@openmrs.org>  Thu, 30 Jun 2016 18:05:23 +0000
+
 mechanismimporter (1.0.0-0ubuntu15) trusty; urgency=medium
 
   * Upgrading nodejs changes from https://github.com/pepfar-datim/Global/tree/master/src/nodejs 
