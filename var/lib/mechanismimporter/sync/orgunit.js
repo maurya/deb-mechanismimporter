@@ -43,7 +43,7 @@ function newCountry(countryName) {
     //
     // Share the country user group (read-only) with itself.
     //
-    dhis.shareCached("userGroup", users, 'r-------', users);
+    dhis.shareCached("userGroup", users, '--------', users);
 
     //
     // Share the deduplication mechanism, COGs, and COGS with country all mechanisms user group.

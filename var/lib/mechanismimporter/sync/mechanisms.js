@@ -35,38 +35,38 @@ var agencyCount = 0;
 var partnerCount = 0;
 
 function addBasicObjects(configureSharing) {
-    dhis.addIfNotExists("category", {name: "Funding Mechanism", dataDimensionType: "ATTRIBUTE", dimensionType: "CATEGORY", id: "SH885jaRe0o"}, "id,name,categoryOptions[id]");
-    dhis.addIfNotExists("categoryCombo", {name: "Funding Mechanism", dataDimensionType: "ATTRIBUTE", id: "wUpfppgjEza", categories: [{name: "Funding Mechanism", id: "SH885jaRe0o"}] }, "id,name");
-    dhis.addIfNotExists("categoryOptionGroupSet", {name: "Funding Agency", dataDimensionType: "ATTRIBUTE", dimensionType: "CATEGORYOPTION_GROUPSET", id: "bw8KHXzxd9i"});
-    dhis.addIfNotExists("categoryOptionGroupSet", {name: "Implementing Partner", dataDimensionType: "ATTRIBUTE", dimensionType: "CATEGORYOPTION_GROUPSET", id: "BOyWrF33hiR"});
+    dhis.addIfNotExists("category", {name: "Funding Mechanism", dataDimensionType: "ATTRIBUTE", dimensionType: "CATEGORY", id: "SH885jaRe0o", publicAccess: "r-------"}, "id,name,categoryOptions[id]");
+    dhis.addIfNotExists("categoryCombo", {name: "Funding Mechanism", dataDimensionType: "ATTRIBUTE", id: "wUpfppgjEza", publicAccess: "r-------", categories: [{name: "Funding Mechanism", id: "SH885jaRe0o"}] }, "id,name");
+    dhis.addIfNotExists("categoryOptionGroupSet", {name: "Funding Agency", dataDimensionType: "ATTRIBUTE", dimensionType: "CATEGORYOPTION_GROUPSET", id: "bw8KHXzxd9i", publicAccess: "r-------"});
+    dhis.addIfNotExists("categoryOptionGroupSet", {name: "Implementing Partner", dataDimensionType: "ATTRIBUTE", dimensionType: "CATEGORYOPTION_GROUPSET", id: "BOyWrF33hiR", publicAccess: "r-------"});
 
     if (configureSharing) {
-        var allMech = dhis.addIfNotExists("userGroup", {name: "Global all mechanisms", id: "TOOIJWRzJ3g"});
-        var metadata = dhis.addIfNotExists("userGroup", {name: "Global Metadata Administrators", id: "XRHKxqIpQ0T"});
-        var admins = dhis.addIfNotExists("userGroup", {name: "Global User Administrators", id: "ghYxzrKHldx"});
-        var users = dhis.addIfNotExists("userGroup", {name: "Global Users", id: "gh9tn4QBbKZ"});
-        var si = dhis.addIfNotExists("userGroup", {name: "Data SI access", id: "c6hGi8GEZot"});
+        var allMech = dhis.addIfNotExists("userGroup", {name: "Global all mechanisms", id: "TOOIJWRzJ3g", publicAccess: "--------"});
+        var metadata = dhis.addIfNotExists("userGroup", {name: "Global Metadata Administrators", id: "XRHKxqIpQ0T", publicAccess: "--------"});
+        var admins = dhis.addIfNotExists("userGroup", {name: "Global User Administrators", id: "ghYxzrKHldx", publicAccess: "--------"});
+        var users = dhis.addIfNotExists("userGroup", {name: "Global Users", id: "gh9tn4QBbKZ", publicAccess: "--------"});
+        var si = dhis.addIfNotExists("userGroup", {name: "Data SI access", id: "c6hGi8GEZot", publicAccess: "--------"});
 
         dhis.shareCached("userGroup", allMech, '--------', [
             {group: metadata, groupAccess: "rw------"},
-            {group: admins, groupAccess: "rw------"} ] );
+            {group: admins, groupAccess: "r-------"} ] );
 
         dhis.shareCached("userGroup", metadata, '--------', [
             {group: metadata, groupAccess: "rw------"},
-            {group: admins, groupAccess: "rw------"} ] );
+            {group: admins, groupAccess: "r-------"} ] );
 
         dhis.shareCached("userGroup", admins, '--------', [
             {group: metadata, groupAccess: "rw------"},
-            {group: admins, groupAccess: "rw------"} ] );
+            {group: admins, groupAccess: "r-------"} ] );
 
         dhis.shareCached("userGroup", users, '--------', [
             {group: metadata, groupAccess: "rw------"},
-            {group: admins, groupAccess: "rw------"},
+            {group: admins, groupAccess: "r-------"},
             {group: users, groupAccess: "r-------"} ] );
 
         dhis.shareCached("userGroup", si, '--------', [
             {group: metadata, groupAccess: "rw------"},
-            {group: admins, groupAccess: "rw------"},
+            {group: admins, groupAccess: "r-------"},
             {group: users, groupAccess: "r-------"} ] );
     }
 }
@@ -74,14 +74,16 @@ function addBasicObjects(configureSharing) {
 function preloadCache(configureSharing) {
     log.action("Preloading cache.")
     var mechanismCategory = dhis.getCache("category", "name", "Funding Mechanism");
-    dhis.getAllInPath("categoryOption", "categories/" + mechanismCategory.id + ".json?fields=categoryOptions[id,name,code,startDate,endDate,organisationUnits[id,name],userGroupAccesses[id,name]]" );
+    dhis.getAllInPath("categoryOption", "categories/" + mechanismCategory.id + ".json?fields=categoryOptions[id,name,shortName,code,publicAccess,startDate,endDate,organisationUnits[id,name],userGroupAccesses[id,displayName,access]]" );
     log.action("Preloaded " + Object.keys(dhis.getKeyCache("categoryOption", "name")).length + " mechanisms.");
-    log.trace("Mechanisms: " + util.inspect(dhis.getKeyCache("categoryOption", "name"), {depth: 8}));
-    dhis.preloadCache("categoryOptionGroup", "id,name,code,categoryOptions[id]");
-    dhis.preloadCache("categoryOptionGroupSet", "id,name,categoryOptionGroups[id]");
+    //log.trace("Mechanisms: " + util.inspect(dhis.getKeyCache("categoryOption", "name"), {depth: 8}));
+    dhis.preloadCache("categoryOptionGroup", "id,name,shortName,code,publicAccess,categoryOptions[id],userGroupAccesses[id,displayName,access]");
+    log.action("Preloaded " + Object.keys(dhis.getKeyCache("categoryOptionGroup", "name")).length + " agencies and partners.");
+    dhis.preloadCache("categoryOptionGroupSet", "id,name,publicAccess,categoryOptionGroups[id]");
+    log.action("Preloaded " + Object.keys(dhis.getKeyCache("categoryOptionGroupSet", "name")).length + " categoryOptionGroupSets.");
 
     if (configureSharing) {
-        dhis.preloadCache("userGroup", "id,name,userGroupAccesses[id],managedGroups[id]");
+        dhis.preloadCache("userGroup", "id,name,publicAccess,userGroupAccesses[id,access,displayName],managedGroups[id,name]");
         log.action("Preloaded " + Object.keys(dhis.getKeyCache("userGroup", "name")).length + " user groups.");
     }
 
@@ -102,6 +104,7 @@ function preloadCache(configureSharing) {
             dhis.preloadCache("organisationUnit", "id,name,level,uuid,path", "level:eq:4", "path:like:" + regionalOus[i].path.slice(-11));
         }
     }
+    log.action("Preloaded " + Object.keys(dhis.getKeyCache("organisationUnit", "name")).length + " organisationUnits.");
 }
 
 function rememberAgencies(agencyName) {
@@ -401,6 +404,9 @@ exports.sync = function(configureSharing, mechanismList) {
         mechanism.newMechanism(configureSharing, m.mechanismCode, m.mechanismName, m.start, m.end, m.partnerCode, m.partnerName, m.agencyName, m.countryName, country);
     }
 
+    log.action("Rebuilding category option combinations.");
+    dhis.categoryOptionComboUpdate();
+
     log.action();
     log.action("==============================================================================================");
     log.action("==============================================================================================");
@@ -419,9 +425,6 @@ exports.sync = function(configureSharing, mechanismList) {
 
     dhis.flushCaches();
 
-    log.action("Rebuilding category option combinations.");
-    dhis.categoryOptionComboUpdate();
-
     log.action("Checking category option combinations.");
     catOptionCombos.fix();
 
@@ -431,4 +434,5 @@ exports.sync = function(configureSharing, mechanismList) {
     log.action("Ending Mechanism import at " + common.currentDateAndTime());
     var e = (new Date().getTime() - startTime) / 1000 | 0; // Elapsed time in seconds.
     log.action("Mechanism import elapsed time (h:mm:ss): " + (e/3600 | 0) + ":" + common.d2((e/60)%60 | 0) + ":" + common.d2(e%60) );
+
 }

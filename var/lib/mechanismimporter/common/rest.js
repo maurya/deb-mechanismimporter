@@ -100,7 +100,7 @@ function commonRest(method, path, requestObj, quietly, callback) {
         + ( server.protocol == http ? "http" : "https" ) + "://" + server.options.host + (server.options.port == undefined ? "" : ( ":" + server.options.port ) )  + server.options.path.replace(/'/g,"''") + "'"
         + ( requestJson == null ? "" : " -H 'Content-Type: application/json' -H 'Content-Length: " + requestJson.length + "' --data '" +  requestJson.replace(/'/g,"''") + "'" );
 
-    log.debug( curl.substring(0,10000) );
+    log.info( curl.substring(0,10000) );
 
     var req = server.protocol.request(server.options, function(result) {
 //        log.trace("Path: '" + path + "' code: " + result.statusCode);

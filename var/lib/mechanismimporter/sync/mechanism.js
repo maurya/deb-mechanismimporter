@@ -113,7 +113,7 @@ function changeMechanismDates(mechanismCo, start, end) {
 exports.newMechanism = function(configureSharing, mechanismCode, mechanismName, start, end, partnerCode, partnerName, agencyName, countryName, country) {
     log.info("Mechanism: " + countryName + " " + agencyName + " " + partnerCode + " " + mechanismCode + "-" + mechanismName);
 
-    dhis.clearHibernateCache(); // Try to avoid hibernate cache corruption issues.
+    // dhis.clearHibernateCache(); // Try to avoid hibernate cache corruption issues.
 
     //
     // If mechanism exists, check for changed properties.
@@ -130,7 +130,7 @@ exports.newMechanism = function(configureSharing, mechanismCode, mechanismName, 
         if (getMechanismCountry(mechanismCo) && getMechanismCountryName(mechanismCo) != countryName) {
             changeMechanismCountry(configureSharing, mechanismCo, countryName, partnerCode);
         }
-        if (mechanismCo.startDate != start || mechanismCo.endDate != end) {
+        if ((new Date(mechanismCo.startDate)).getTime() != (new Date(start)).getTime() || (new Date(mechanismCo.endDate)).getTime() != (new Date(end)).getTime()) {
             changeMechanismDates(mechanismCo, start, end);
         }
     } else {

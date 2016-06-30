@@ -159,7 +159,7 @@ exports.newAgencyInCountry = function(configureSharing, agencyName, countryName)
     //
     // Share the agency country user group (read-only) with itself.
     //
-    dhis.shareCached("userGroup", users, 'r-------', users);
+    dhis.shareCached("userGroup", users, '--------', users);
 
     //
     // Share data access user groups with country agency user administrators.

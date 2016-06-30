@@ -115,6 +115,8 @@ function csdConfig() {
         logMinimumLevel = getLogMinimumLevel;
     }
 
+    log.openAll(logDirectory, logMinimumLevel);
+
     if (!dhisHostname) {
         log.fatal("Error - Can't find property '" + dhisHostnameProperty + "' in " + propertiesFile );
     }
@@ -131,8 +133,6 @@ function csdConfig() {
         log.closeAll();
         process.exit(1); // Exit nodejs with failure.
     }
-
-    log.openAll(logDirectory, logMinimumLevel);
 
     rest.setCredentials(dhisProtocol, dhisHostname, dhisPort, dhisPath, dhisUsername, dhisPassword);
 }

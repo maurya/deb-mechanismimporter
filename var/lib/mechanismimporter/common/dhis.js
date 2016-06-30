@@ -74,31 +74,43 @@ var getKeyCache = exports.getKeyCache = function(type, keyField) {
     return keyCache;
 }
 
-var putCache = exports.putCache = function(type, keyField, object) {
-    if ( object && object[ keyField ] ) {
-        getKeyCache(type, keyField) [object[keyField]] = object;
-        log.trace("dhis.putCache( " + type + ", " + keyField + ", " + object[keyField] + ")");
+var putCache = exports.putCache = function(type, keyField, keyValue, object) {
+    if ( keyValue ) {
+        getKeyCache(type, keyField)[keyValue] = object;
+        log.trace("dhis.putCache( " + type + ", " + keyField + ", " + keyValue + ", " + (object ? "(object)" : object ) + ")");
     }
 }
 
 var getCache = exports.getCache = function(type, keyField, key) {
-    return getKeyCache(type, keyField) [ key ];
+    if (key) {
+        var cache = getKeyCache(type, keyField);
+        if (typeof(key) == "string") {
+            log.trace("getCache (" + type + ", " + keyField + ", string '" + key + "') = " + util.inspect(cache[key]));
+            return cache[key];
+        }
+        else if (key[keyField]) {
+            log.trace("getCache (" + type + ", " + keyField + ", object '" + key[keyfield] + "') = " + util.inspect(cache[key[keyfield]]));
+            return cache[key[keyfield]];
+        }
+    }
+    return undefined;
 }
 
 var removeKeyFromCache = function(type, keyField, object) {
     if (object && object [ keyField ]) {
+        log.action("removeKeyFromCache " + type + " " + keyField + " " + object [ keyField ] );
         var keyCache = getKeyCache(type, keyField);
-        if (keyCache [key]) {
-            delete keyCache[key];
+        if (keyCache [object[keyField]]) {
+            delete keyCache[object[keyField]];
         }
     }
 }
 
 var updateCache = function(type, object) {
-    putCache(type, "id", object);
-    putCache(type, "code", object);
-    putCache(type, "name", object);
-    putCache(type, "uuid", object);
+    putCache(type, "id", object["id"], object);
+    putCache(type, "code", object["code"], object);
+    putCache(type, "name", object["name"], object);
+    putCache(type, "uuid", object["uuid"], object);
 }
 
 var removeFromCache = exports.removeFromCache = function(type, object) {
@@ -112,10 +124,12 @@ var getById = exports.getById = function(type, id) {
     log.trace("dhis.getById( " + type + ", " + id + ")" );
     var object = getCache(type, "id", id);
 //    log.trace("dhis.getById - object from cache = " + util.inspect( object ));
-    if (!object) {
+    if ( object === undefined ) {
         object = rest.getQuietly("/api/" + type.plural() + "/" + id + ".json?fields=:all", true);
         if (object) {
             updateCache(type, object);
+        } else {
+            putCache(type, "id", id, null); // Cache a null value if not found.
         }
     }
     return object;
@@ -123,12 +137,14 @@ var getById = exports.getById = function(type, id) {
 
 var getByCode = exports.getByCode = function(type, code) {
     var object = getCache(type, "code", code);
-    if (!object) {
+    if ( object === undefined ) {
         var result = rest.get("/api/" + type.plural() + ".json?filter=code:eq:" + encode(code) + "&fields=:all");
         object = result[type.plural()].length == 0 ? null : result[type.plural()][0];
 //        log.trace("dhis.getByCode - object = " + util.inspect( object ));
         if (object) {
             updateCache(type, object);
+        } else {
+            putCache(type, "code", code, null); // Cache a null value if not found.
         }
     }
     return object;
@@ -137,13 +153,15 @@ var getByCode = exports.getByCode = function(type, code) {
 var getByOperatorOnName = function(operator, type, name, fields) {
     log.trace("dhis.getByOperatorOnName (" + operator + ", " + type + ", " + name + (fields ? (", '" + fields + "'") : "") + ")");
     var object = fields ? undefined : getCache(type, "name", name);
-    if (!object) {
+    if (object === undefined) {
         result = rest.get("/api/" + type.plural() + ".json?filter=name:" + operator + ":" + encode(name) + "&fields=" + (fields ? fields : ":all") );
         log.trace("dhis.getByOperatorOnName Result: " + util.inspect(result, { depth: 8 } ) );
         object = result[type.plural()].length == 0 ? null : result[type.plural()][0];
-    }
-    if (object) {
-        updateCache(type, object);
+        if ( object ) {
+            updateCache(type, object);
+        } else {
+            putCache(type, "name", name, null); // Cache a null value if not found.
+        }
     }
     return object;
 };
@@ -162,18 +180,27 @@ var getByNameLike = exports.getByNameLike = function(type, name, fields) {
     return getByOperatorOnName("like", type, name, fields);
 };
 
+var looksLikeId = function(obj) {
+    return obj && ( obj.id || ( typeof(obj) == "string" && /^[a-zA-Z]{1}[a-zA-Z0-9]{10}$/.test(obj) ) );
+}
+
 var getByNameOrCodeOrId = exports.getByNameOrCodeOrId = function(type, obj) {
-    var object = getCache(type, "name", obj);
-    if ( !object ) {
-        object = getCache(type, "code", obj);
-        if (!object) {
-            object = getCache(type, "id", obj);
+    var object = undefined;
+    if (looksLikeId(obj)) {
+        object = getCache(type, "id", obj);
+    }
+    if (!object) {
+        object = getCache(type, "name", obj);
+        if ( !object ) {
+            object = getCache(type, "code", obj);
             if (!object) {
-                object = getByName(type, obj.name ? obj.name : obj, undefined);
+                if (looksLikeId(obj)) {
+                    object = getById(type, obj.id ? obj.id : obj);
+                }
                 if (!object) {
-                    object = getByCode(type, obj.code ? obj.code : obj);
-                    if (!object && ( obj.id || ( (typeof obj == 'string' || obj instanceof String) && /^[a-zA-Z]{1}[a-zA-Z0-9]{10}$/.test(obj) ) )) {
-                        object = getById(type, obj.id ? obj.id : obj);
+                    object = getByName(type, obj.name ? obj.name : obj, undefined);
+                    if (!object) {
+                        object = getByCode(type, obj.code ? obj.code : obj);
                     }
                 }
             }
@@ -275,43 +302,17 @@ var fixShortName = exports.fixShortName = function(type, reference) {
         return;
     }
     var newShortName = object.name.substring(0,MAX_SHORT_NAME_LENGTH);
-    log.debug("dhis.fixShortName of " + type + " '" + object.name + " from '" + object.shortName + "' to '" + newShortName + "'");
+    log.debug("dhis.fixShortName of " + type + " '" + object.name + "' from '" + object.shortName + "' to '" + newShortName + "'");
     object.shortName = newShortName;
     update(type, object);
 }
 
 var add = exports.add = function(type, object) {
     log.debug("dhis.add " + type + " " + ( object.name ? object.name : util.inspect(object) ) );
-    var status = rest.post( "/api/" + type.plural(), object);
-    var newObject = getByName(type, object.name, undefined); // (Assume what we added has a name!)
-//    if (!status.lastImported) {
-//        log.error("dhis.add Couldn't add " + type + " " + ( object.name ? object.name : util.inspect(object) ));
-//        return status;
-//    }
-    if (object.publicAccess == "--------" || ( object.userGroupAccesses && object.userGroupAccesses.length) ) {
-        //log.trace("dhis.add updating sharing because of publicAccess = " + object.publicAccess + " " + (object.publicAccess == "--------")
-        //            + " or userGroupAccesses = " + object.userGroupAccesses + " " + (object.userGroupAccesses != undefined));
-        var sharing = rest.get( "/api/sharing?type=" + type + "&id=" + newObject.id);
-//            log.trace("dhis.add share result = " + util.inspect(sharing, { depth: 4 }) );
-        if (object.publicAccess && object.publicAccess == "--------") {
-            sharing.meta.allowPublicAccess = false;
-            sharing.object.publicAccess = "--------";
-        }
-        if (object.userGroupAccesses) {
-            var acl = sharing.object.userGroupAccesses;
-            if (acl == undefined) // No access list yet, create one
-            {
-                sharing.object.userGroupAccesses = [];
-                acl = sharing.object.userGroupAccesses;
-            }
-            for (var i in object.userGroupAccesses) {
-                var ac = object.userGroupAccesses[i];
-                acl.push({id: ac.userGroup.id, name: ac.userGroup.name, access: ac.access}); // Add share from->to.
-            }
-        }
-//            log.trace("dhis.add - updating sharing with " + util.inspect(sharing, { depth: 4 }));
-        rest.post("/api/sharing?type=" + type + "&id=" + newObject.id, sharing);
-    }
+    rest.post( "/api/" + type.plural() + (object["publicAccess"] ? "?sharing=true" : ""), object);
+    var result = rest.get("/api/" + type.plural() + ".json?filter=name:eq:" + encode(object.name) + "&fields=:all" );
+    var newObject = result[type.plural()].length == 0 ? null : result[type.plural()][0];
+    updateCache(type, newObject);
     return newObject;
 };
 
@@ -334,7 +335,7 @@ var addIfNotExists = exports.addIfNotExists = function(type, obj, fields) {
 }
 
 var addOrUpdate = exports.addOrUpdate = function(type, obj) {
-    obj.name = obj.name.substring(0,229); // Truncate names that are too long.
+    obj.name = obj.name.substring(0,MAX_NAME_LENGTH); // Truncate names that are too long.
     var existing = getByName(type, obj.name, undefined);
 //    log.trace("dhis.addOrUpdate " + type + " '" + obj.name + "' - " + util.inspect( existing ));
     if (existing) {
@@ -372,15 +373,7 @@ var addOrUpdate = exports.addOrUpdate = function(type, obj) {
 var addOrUpdatePrivate = exports.addOrUpdatePrivate = function(type, object) {
     object["publicAccess"] = "--------";
     var storedObject = addOrUpdate(type, object);
-    if ( storedObject ) {
-//        log.trace("dhis.addOrUpdatePrivate object = " + util.inspect(storedObject, { depth: 4 }) );
-        var sharingObject = rest.get("/api/sharing?type=" + type + "&id=" + storedObject.id);
-//        log.trace("dhis.addOrUpdatePrivate result = " + util.inspect(sharingObject, { depth: 4 }) );
-        if (sharingObject.object.publicAccess != "--------") {
-            sharingObject.object.publicAccess = "--------";
-            rest.post("/api/sharing?type=" + type + "&id=" + storedObject.id, sharingObject); // Made private
-        }
-    } else {
+    if ( !storedObject ) {
         log.error("dhis.addOrUpdatePrivate( " + type + " " + object.name + " ) failed.");
     }
     return storedObject;
@@ -473,7 +466,7 @@ var addToCollectionIfNeededCached = exports.addToCollectionIfNeededCached = func
 function flushAddToCollectionCache() {
     for (var cache in pendingAddToCollection) {
         if (pendingAddToCollection.hasOwnProperty(cache)) {
-            clearHibernateCache();
+            //clearHibernateCache();
             var cacheSplit = cache.split("-");
             var type = cacheSplit[0];
             var objectReference = cacheSplit[1];
@@ -531,16 +524,29 @@ function shareOne(type, fromReference, publicAccess, to, replaceFlag) {
         return;
     }
     log.trace("dhis.shareOne type " + type + " from " + from.name + " publicAccess " + publicAccess + " to " + util.inspect(to) + " replaceFlag=" + replaceFlag);
-    var sharing = rest.get("/api/sharing?type=" + type + "&id=" + from.id);
-    var acl = sharing.object.userGroupAccesses;
-    if (acl == undefined) // No access control list yet for this object, create one
-    {
-        acl = [];
-        sharing.object.userGroupAccesses = acl;
+    var sharing;
+    var acl;
+    if (from.userGroupAccesses) { // See if ACL is already in the "from" object.
+        sharing = {meta: {allowPublicAccess: true, allowExternalAccess: false},
+            object: {id: from.id, name: from.name, publicAccess: publicAccess, externalAccess: false, userGroupAccesses: []}};
+        acl = sharing.object.userGroupAccesses;
+        for (var i in from.userGroupAccesses) {
+            var a = from.userGroupAccesses[i];
+            acl.push({id: a.id, access: a.access});
+        }
+    }
+    else {
+        sharing = rest.get("/api/sharing?type=" + type + "&id=" + from.id);
+        acl = sharing.object.userGroupAccesses;
+        if (acl == undefined) // No access control list yet for this object, create one
+        {
+            acl = [];
+            sharing.object.userGroupAccesses = acl;
+        }
     }
     var aclMap = {}; // Convert acl to a map by shared object id.
     for (var i in acl) {
-        aclMap[acl[i].id] = acl[i].access;
+        aclMap[acl[i].id] = {access: acl[i].access, displayName: acl[i].displayName};
     }
     var updateNeeded = false;
     var toArray = [].concat(to); // "to" could be either a single object or an array of objects.
@@ -578,11 +584,14 @@ function shareOne(type, fromReference, publicAccess, to, replaceFlag) {
         acl = []; // Convert map back to acl.
         for (var property in aclMap) {
             if (aclMap.hasOwnProperty(property)) {
-                acl.push({id: property, access: aclMap[property]});
+                acl.push({id: property, access: aclMap[property].access, displayName: aclMap[property].displayName});
             }
         }
+        sharing.object.publicAccess = publicAccess;
         sharing.object.userGroupAccesses = acl;
         rest.post("/api/sharing?type=" + type + "&id=" + from.id, sharing);
+        var changedObject = rest.get("/api/" + type.plural() + "/" + from.id + "?fields=:all");
+        updateCache(type, changedObject);
     }
 }
 
@@ -591,15 +600,19 @@ function unshareOneIfExists(type, fromReference, to) {
     if (!from || !from.id) {
         return;
     }
-    var sharing = rest.get("/api/sharing?type=" + type + "&id=" + from.id);
-    var acl = sharing.object.userGroupAccesses;
-    if (acl == undefined) // No access control list yet for this object
-    {
-        return; // Nothing to unshare!
+    var sharing = {object: from};
+    var acl = from.userGroupAccesses; // See if ACL is already in the "from" object.
+    if (!acl) {
+        var sharing = rest.get("/api/sharing?type=" + type + "&id=" + from.id);
+        var acl = sharing.object.userGroupAccesses;
+        if (acl == undefined) // No access control list yet for this object, create one
+        {
+            return; // Nothing to unshare!
+        }
     }
     var aclMap = {}; // Convert acl to a map by shared object id.
     for (var i in acl) {
-        aclMap[acl[i].id] = acl[i].access;
+        aclMap[acl[i].id] = {access: acl[i].access, displayName: acl[i].displayName};
     }
     var updateNeeded = false;
     var toArray = [].concat(to); // "to" could be either a single object or an array of objects.
@@ -609,7 +622,6 @@ function unshareOneIfExists(type, fromReference, to) {
         if (!id) {
             return;
         }
-        var access = toArray[i].groupAccess ? toArray[i].groupAccess : "r-------";
         if (aclMap[id]) {
             delete aclMap[id];
             updateNeeded = true;
@@ -619,10 +631,10 @@ function unshareOneIfExists(type, fromReference, to) {
         acl = []; // Convert map back to acl.
         for (var property in aclMap) {
             if (aclMap.hasOwnProperty(property)) {
-                acl.push({id: property, access: aclMap[property]});
+                acl.push({id: property, access: aclMap[property].access, displayName: aclMap[property].displayName});
             }
         }
-        sharing.object.userGroupAccesses = acl;
+        sharing.object["userGroupAccesses"] = acl;
         rest.post("/api/sharing?type=" + type + "&id=" + from.id, sharing);
     }
 }
@@ -669,7 +681,7 @@ function shareOneCached(type, fromReference, publicAccess, to, replaceFlag, quie
         } else {
             var access = toArray[i].groupAccess ? toArray[i].groupAccess : "r-------";
             cache[toGroup.id] = access;
-            log.debug("dhis.shareOneCached " + type + " '" + from.name + "' shared with '" + toGroup.name + "' access '" + access + "'");
+            log.debug("dhis.shareOneCached " + type + " '" + from.name + "' " + from.id + " shared with '" + toGroup.name + "' " + toGroup.id + " access '" + access + "'");
         }
     }
 }
@@ -707,14 +719,22 @@ var shareCachedReplace = exports.shareCachedReplace = function(type, from, publi
 function flushShareCache() {
     for (var cache in pendingShares) {
         if (pendingShares.hasOwnProperty(cache)) {
-            clearHibernateCache();
+            //clearHibernateCache();
             var cacheSplit = cache.split("/");
             var type = cacheSplit[0];
             var from = cacheSplit[1];
             var publicAccess = cacheSplit[2];
-            var toArray = common.propertyArray(pendingShares[cache]);
+            var toArray = [];
+            var toDict = pendingShares[cache];
+            log.trace("flushShareCache = " + cache + ",  toDict =" + util.inspect(toDict));
+            for (var group in toDict) {
+                if(toDict.hasOwnProperty(group)) {
+                    var to = {group: group,  groupAccess: toDict[group]};
+                    toArray.push(to);
+                }
+            }
             if ( toArray ) {
-                log.trace("dhis.flushShareCache item " + cache + " [" + toArray + "]" );
+                log.trace("dhis.flushShareCache item " + cache + " [" + util.inspect(toArray) + "]" );
                 shareOne(type, from, publicAccess, toArray, pendingShareReplaceFlags[cache]);
             }
         }

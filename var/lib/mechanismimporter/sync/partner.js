@@ -169,7 +169,7 @@ exports.newPartnerInCountry = function(shares, partnerCode, partnerName, country
     //
     // Share the partner country user group (read-only) with itself.
     //
-    dhis.shareCached("userGroup", users, 'r-------', users);
+    dhis.shareCached("userGroup", users, '--------', users);
 
     //
     // Share data access user groups with country partner user administrators.
