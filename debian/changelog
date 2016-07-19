@@ -1,3 +1,9 @@
+mechanismimporter (1.0.0-0ubuntu17) trusty; urgency=medium
+
+  * Incorporating jgrace's changes from https://github.com/pepfar-datim/MechanismImporter 
+
+ -- suranga kasthurirathne <surangakas@gmail.com>  Tue, 19 Jul 2016 20:38:43 +0000
+
 mechanismimporter (1.0.0-0ubuntu16) trusty; urgency=medium
 
   * Adding Latest version of Mechanism importer to solve #195
