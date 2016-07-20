@@ -250,7 +250,7 @@ function loadCsd( method, path, contentType, payload ) {
 var main = exports.main = function main() {
     process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"; // Ignore errors from self signed certificates
     csdConfig();   
-    loadCsd("get", ilrMechanismPath, {}, null );    
+    loadCsd("get", ilrMechanismPath, {}, null );
     resolveUuidReferences();
     mechanisms.sync(configureSharing, mechanismList);
     log.closeAll();

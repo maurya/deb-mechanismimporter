@@ -404,9 +404,6 @@ exports.sync = function(configureSharing, mechanismList) {
         mechanism.newMechanism(configureSharing, m.mechanismCode, m.mechanismName, m.start, m.end, m.partnerCode, m.partnerName, m.agencyName, m.countryName, country);
     }
 
-    log.action("Rebuilding category option combinations.");
-    dhis.categoryOptionComboUpdate();
-
     log.action();
     log.action("==============================================================================================");
     log.action("==============================================================================================");
@@ -424,6 +421,10 @@ exports.sync = function(configureSharing, mechanismList) {
     }
 
     dhis.flushCaches();
+
+    log.action("Rebuilding category option combinations.");
+    dhis.categoryOptionComboUpdate();
+    dhis.categoryOptionComboUpdate(); // For some reason this helps to stimulate correct option combo generation for just-added options
 
     log.action("Checking category option combinations.");
     catOptionCombos.fix();

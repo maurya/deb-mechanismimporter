@@ -27,15 +27,15 @@ String.prototype.plural = function() { // Derive the DHIS 2 plural object name.
 }
 
 var clearHibernateCache = exports.clearHibernateCache = function() {
-    rest.put( "/api/maintenance/cache", null );
+    rest.post( "/api/maintenance/cache", null );
 }
 
 var categoryOptionComboUpdate = exports.categoryOptionComboUpdate = function() {
-    rest.put( "/api/maintenance/categoryOptionComboUpdate", null );
+    rest.post( "/api/maintenance/categoryOptionComboUpdate", null );
 }
 
 var resourceTablesUpdate = exports.resourceTablesUpdate = function() {
-    rest.put( "/api/resourceTables", null );
+    rest.post( "/api/resourceTables", null );
 }
 
 // Encode if server is using ASCII-8 URL encoding (not UTF-8).

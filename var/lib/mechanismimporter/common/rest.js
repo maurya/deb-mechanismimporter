@@ -1,5 +1,6 @@
 var https = require('https');
 var http = require('http');
+var url = require('url');
 var util = require('util');
 var sync = require('synchronize');
 var common = require('./common.js');
@@ -61,7 +62,7 @@ function commonRest(method, path, requestObj, quietly, callback) {
 
     var server = servers[hostname]; // Choose which preconfigured server.
 
-    if ( server == null ) { // If not preconfigured, then look for hostname or hostname.datim.org:
+    if (server == null) { // If not preconfigured, then look for hostname or hostname.datim.org:
         server = {
             protocol: protocol == "https" ? https : http,
             options: {
@@ -73,6 +74,11 @@ function commonRest(method, path, requestObj, quietly, callback) {
     }
 
     server.options.method = method;
+
+    internalRest(server, method, path, requestObj, quietly, callback);
+}
+
+function internalRest(server, method, path, requestObj, quietly, callback) {
 
     var requestJson = (requestObj == null ? null : JSON.stringify(requestObj));
 
@@ -138,8 +144,24 @@ function commonRest(method, path, requestObj, quietly, callback) {
                 log.closeAll();
                 process.exit(1);
             }
-            if (result.statusCode != 200 && result.statusCode != 204)
-            {
+            if (result.statusCode == 302) {
+                var newLocation = url.parse(result.headers["location"]);
+                if (!newLocation) {
+                    log.fatal("Status code 302 but no redirect location for " + method + " " + server.options.path
+                        + (requestJson == null ? "" : " " + requestJson) + "\n"
+                        + responseBody + "\n"
+                        + curl + "\n"
+                        + "Headers: " + util.inspect(result.headers));
+                }
+                server.protocol = newLocation.protocol == "https:" ? https : http;
+                server.options.hostname = newLocation.hostname;
+                server.options.port = newLocation.port ? newLocation.port : server.protocol == https ? 443 : 80;
+                server.options.path = newLocation.path + (newLocation.hash ? newLocation.hash : "");
+                log.info("302 redirect to " + newLocation.href);
+                internalRest(server, method, path, requestObj, quietly, callback);
+                return;
+            }
+            if (result.statusCode != 200 && result.statusCode != 204) {
                 if (!quietly || result.statusCode != 404) {
                     log.error("Unexpected status code " + result.statusCode + " for " + method + " " + path + (requestJson == null ? "" : " " + requestJson) + "\n"
                         + responseBody + "\n"

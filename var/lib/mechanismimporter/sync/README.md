@@ -18,11 +18,11 @@ You can run the mechanismImporter in one of two ways:
 
 1) As a one-time run:
 ```
-node csd
+nodejs csd
 ```
 2) As a web service, the following command will start the service:
 ```
-node csd-webserver
+nodejs csd-webserver
 ```
 While the csd-webserver is running, any access to the mechanismImporter's port will cause the mechanismImporter to run. For example, if the mechanismImporter is configured to listen on port 1777, the following (from the same machine) will cause it to run:
 
