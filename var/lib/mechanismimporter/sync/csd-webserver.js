@@ -27,7 +27,7 @@ http.createServer(function (req, res) {
     sync.fiber(function() {
         csd.main();
     });
-    
+
     res.writeHead(202);
     res.end();
 }).listen(port, '0.0.0.0'); // Listen on any IP address

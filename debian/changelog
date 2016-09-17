@@ -1,3 +1,9 @@
+mechanismimporter (1.0.0-0ubuntu20) trusty; urgency=medium
+
+  * Adding changes from https://github.com/pepfar-datim/MechanismImporter as of 17th Sept 
+
+ -- suranga kasthurirathne <surangakas@gmail.com>  Sat, 17 Sep 2016 16:58:00 +0000
+
 mechanismimporter (1.0.0-0ubuntu18) trusty; urgency=medium
 
   * Applying Ryan C's changes from https://github.com/pepfar-datim/MechanismImporter/pull/1/files 

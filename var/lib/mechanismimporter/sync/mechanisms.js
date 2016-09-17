@@ -89,7 +89,7 @@ function preloadCache(configureSharing) {
 
     //
     // Get all the level 3 org units.
-    dhis.preloadCache("organisationUnit", "id,name,level,uuid,path", "level:le:3");
+    dhis.preloadCache("organisationUnit", "id,name,level,uuid,path,attributeValues[attribute[name],value]", "level:le:3");
     //
     // Also get all the level 4 countries that are under level 3 regional OUs.
     var orgUnitsByName = dhis.getKeyCache("organisationUnit", "name");
@@ -101,7 +101,7 @@ function preloadCache(configureSharing) {
     }
     for (var i in regionalOus) {
         if (regionalOus.length) {
-            dhis.preloadCache("organisationUnit", "id,name,level,uuid,path", "level:eq:4", "path:like:" + regionalOus[i].path.slice(-11));
+            dhis.preloadCache("organisationUnit", "id,name,level,uuid,path,attributeValues[attribute[name],value]", "level:eq:4", "path:like:" + regionalOus[i].path.slice(-11));
         }
     }
     log.action("Preloaded " + Object.keys(dhis.getKeyCache("organisationUnit", "name")).length + " organisationUnits.");
@@ -346,14 +346,14 @@ function discardOldMechanismsNotPreexisting() {
 
 function discardMechanismsWhereCountriesDoNotPreexist() {
     var countryNames = dhis.getKeyCache("organisationUnit", "name");
-    var countryUuids = dhis.getKeyCache("organisationUnit", "uuid");
+    var countryEntityIds = dhis.getKeyCache("organisationUnit", "entityID");
     for (var mId in mechanisms) {
         if (mechanisms.hasOwnProperty(mId)) {
             var m = mechanisms[mId];
             if ( !(m.countryName && countryNames[ m.countryName ]) ) {
                 var uuid = m.countryUuid ? m.countryUuid.slice(-36) : undefined; // UUID may be prefixed with 'urn:uuid:'
-                if ( uuid && countryUuids[uuid] ) {
-                    m.countryName = countryUuids[uuid].name;
+                if ( uuid && countryEntityIds[uuid] ) {
+                    m.countryName = countryEntityIds[uuid].name;
                 } else {
                     log.trace( "--> No country"
                         + ( m.countryName ? (" name " + m.countryName) : "" )

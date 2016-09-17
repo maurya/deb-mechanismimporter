@@ -181,9 +181,11 @@ function internalRest(server, method, path, requestObj, quietly, callback) {
                 } catch (err) {
                     if (responseBody != 'Access control set\n') {
                         log.error("Error '" + err.message + "' while parsing response body: " + util.inspect(responseBody) + "\n"
-                        + curl );
+                        + curl + "\n"
+                        + err.stack );
+                        sessionCookie = null; // May have gotten the error while redirecting to login page. Use username + password on retry.
                         if ( callback != null && callback != undefined ) {
-                            callback(null, "FatalError");
+                            callback(null, "Error");
                         }
                         return;
                     }

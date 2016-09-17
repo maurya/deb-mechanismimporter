@@ -77,7 +77,7 @@ var getKeyCache = exports.getKeyCache = function(type, keyField) {
 var putCache = exports.putCache = function(type, keyField, keyValue, object) {
     if ( keyValue ) {
         getKeyCache(type, keyField)[keyValue] = object;
-        log.trace("dhis.putCache( " + type + ", " + keyField + ", " + keyValue + ", " + (object ? "(object)" : object ) + ")");
+        //log.trace("dhis.putCache( " + type + ", " + keyField + ", " + keyValue + ", " + (object ? "(object)" : object ) + ")");
     }
 }
 
@@ -85,11 +85,11 @@ var getCache = exports.getCache = function(type, keyField, key) {
     if (key) {
         var cache = getKeyCache(type, keyField);
         if (typeof(key) == "string") {
-            log.trace("getCache (" + type + ", " + keyField + ", string '" + key + "') = " + util.inspect(cache[key]));
+            //log.trace("getCache (" + type + ", " + keyField + ", string '" + key + "') = " + util.inspect(cache[key]));
             return cache[key];
         }
         else if (key[keyField]) {
-            log.trace("getCache (" + type + ", " + keyField + ", object '" + key[keyfield] + "') = " + util.inspect(cache[key[keyfield]]));
+            //log.trace("getCache (" + type + ", " + keyField + ", object '" + key[keyfield] + "') = " + util.inspect(cache[key[keyfield]]));
             return cache[key[keyfield]];
         }
     }
@@ -111,6 +111,14 @@ var updateCache = function(type, object) {
     putCache(type, "code", object["code"], object);
     putCache(type, "name", object["name"], object);
     putCache(type, "uuid", object["uuid"], object);
+    if (object["attributeValues"]) {
+        for (var a in object["attributeValues"]) {
+            var aValue = object["attributeValues"][a];
+            if (aValue["attribute"] && aValue["attribute"]["name"] == "entityID") {
+                putCache(type, "entityID", aValue["value"], object);
+            }
+        }
+    }
 }
 
 var removeFromCache = exports.removeFromCache = function(type, object) {
@@ -118,12 +126,13 @@ var removeFromCache = exports.removeFromCache = function(type, object) {
     removeKeyFromCache(type, "code", object);
     removeKeyFromCache(type, "name", object);
     removeKeyFromCache(type, "uuid", object);
+    removeKeyFromCache(type, "entityID", object);
 }
 
 var getById = exports.getById = function(type, id) {
-    log.trace("dhis.getById( " + type + ", " + id + ")" );
+    //log.trace("dhis.getById( " + type + ", " + id + ")" );
     var object = getCache(type, "id", id);
-//    log.trace("dhis.getById - object from cache = " + util.inspect( object ));
+    //log.trace("dhis.getById - object from cache = " + util.inspect( object ));
     if ( object === undefined ) {
         object = rest.getQuietly("/api/" + type.plural() + "/" + id + ".json?fields=:all", true);
         if (object) {
@@ -140,7 +149,7 @@ var getByCode = exports.getByCode = function(type, code) {
     if ( object === undefined ) {
         var result = rest.get("/api/" + type.plural() + ".json?filter=code:eq:" + encode(code) + "&fields=:all");
         object = result[type.plural()].length == 0 ? null : result[type.plural()][0];
-//        log.trace("dhis.getByCode - object = " + util.inspect( object ));
+        //log.trace("dhis.getByCode - object = " + util.inspect( object ));
         if (object) {
             updateCache(type, object);
         } else {
@@ -151,11 +160,11 @@ var getByCode = exports.getByCode = function(type, code) {
 };
 
 var getByOperatorOnName = function(operator, type, name, fields) {
-    log.trace("dhis.getByOperatorOnName (" + operator + ", " + type + ", " + name + (fields ? (", '" + fields + "'") : "") + ")");
+    //log.trace("dhis.getByOperatorOnName (" + operator + ", " + type + ", " + name + (fields ? (", '" + fields + "'") : "") + ")");
     var object = fields ? undefined : getCache(type, "name", name);
     if (object === undefined) {
         result = rest.get("/api/" + type.plural() + ".json?filter=name:" + operator + ":" + encode(name) + "&fields=" + (fields ? fields : ":all") );
-        log.trace("dhis.getByOperatorOnName Result: " + util.inspect(result, { depth: 8 } ) );
+        //log.trace("dhis.getByOperatorOnName Result: " + util.inspect(result, { depth: 8 } ) );
         object = result[type.plural()].length == 0 ? null : result[type.plural()][0];
         if ( object ) {
             updateCache(type, object);
@@ -167,7 +176,7 @@ var getByOperatorOnName = function(operator, type, name, fields) {
 };
 
 var getByName = exports.getByName = function(type, name, fields) {
-    log.trace("dhis.getByName (" + type + ", " + name + (fields ? (", '" + fields + "'") : "") + ")");
+    //log.trace("dhis.getByName (" + type + ", " + name + (fields ? (", '" + fields + "'") : "") + ")");
     var object = getByOperatorOnName("eq", type, name, fields); // Doesn't match some names with special characters in them, like maybe ':'.
     if (!object) {
         object = getByOperatorOnName("like", type, name, fields); // Works better on names with some special characters.
@@ -176,7 +185,7 @@ var getByName = exports.getByName = function(type, name, fields) {
 };
 
 var getByNameLike = exports.getByNameLike = function(type, name, fields) {
-    log.trace("dhis.getByNameLike (" + type + ", " + name + (fields ? (", '" + fields + "'") : "") + ")");
+    //log.trace("dhis.getByNameLike (" + type + ", " + name + (fields ? (", '" + fields + "'") : "") + ")");
     return getByOperatorOnName("like", type, name, fields);
 };
 
@@ -271,7 +280,7 @@ var preloadCache = exports.preloadCache = function(type, fields, filter1, filter
         + ( filter2 ? ( "&filter=" + encode(filter2) ) : "" );
     log.info("dhis.preloadCache: " + type + " " + options);
     var objects = getAll(type, options);
-    log.trace("dhis.preloadCache cached: " + util.inspect(objects, {depth: 8}));
+    //log.trace("dhis.preloadCache cached: " + util.inspect(objects, {depth: 8}));
 }
 
 var update = exports.update = function(type, object) {
@@ -337,9 +346,9 @@ var addIfNotExists = exports.addIfNotExists = function(type, obj, fields) {
 var addOrUpdate = exports.addOrUpdate = function(type, obj) {
     obj.name = obj.name.substring(0,MAX_NAME_LENGTH); // Truncate names that are too long.
     var existing = getByName(type, obj.name, undefined);
-//    log.trace("dhis.addOrUpdate " + type + " '" + obj.name + "' - " + util.inspect( existing ));
+    //log.trace("dhis.addOrUpdate " + type + " '" + obj.name + "' - " + util.inspect( existing ));
     if (existing) {
-//        log.trace("dhis.addOrUpdate " + type + " '" + obj.name + "' already exists: " + util.inspect(existing) );
+        //log.trace("dhis.addOrUpdate " + type + " '" + obj.name + "' already exists: " + util.inspect(existing) );
         var updateNeeded = false;
         for (var property in obj) {
             if ( property != "id" && property != "publicAccess" && obj[ property ] != existing[ property ] ) {
@@ -351,17 +360,17 @@ var addOrUpdate = exports.addOrUpdate = function(type, obj) {
                 }
             }
         }
-//        log.trace("dhis.addOrUpdate updateNeeded " + updateNeeded );
+        //log.trace("dhis.addOrUpdate updateNeeded " + updateNeeded );
         if ( updateNeeded ) {
             log.debug("dhis.addOrUpdate updating " + type + " " + obj.name);
             obj.id = existing.id;
             update(type, obj);
             existing = obj;
         }
-        log.trace("dhis.addOrUpdate returning existing " + type + " '" + existing.name + "' - " + util.inspect( existing ));
+        //log.trace("dhis.addOrUpdate returning existing " + type + " '" + existing.name + "' - " + util.inspect( existing ));
         return existing;
     } else {
-        log.trace("dhis.addOrUpdate - adding new " + type + " '" + obj.name + "'");
+        //log.trace("dhis.addOrUpdate - adding new " + type + " '" + obj.name + "'");
         newObject = add(type, obj);
         if (newObject == undefined) {
             log.error("dhis.addOrUpdate failed to add " + type + " " + util.inspect(obj));
@@ -411,9 +420,9 @@ var addToCollectionIfNeeded = exports.addToCollectionIfNeeded = function(type, o
         log.error("dhis.addToCollectionIfNeeded can't find base " + type + " " + util.inspect(objectReference));
         return;
     }
-    log.trace("dhis.addToCollectionIfNeeded object " + util.inspect(object));
+    //log.trace("dhis.addToCollectionIfNeeded object " + util.inspect(object));
     var members = object[collection.plural()];
-    log.trace("dhis.addToCollectionIfNeeded object " + " " + collection + " " + util.inspect(members));
+    //log.trace("dhis.addToCollectionIfNeeded object " + " " + collection + " " + util.inspect(members));
     var memberMap = {}; // Convert members array to a map by shared member id.
     for (var i in members) {
         memberMap[members[i].id] = true;
@@ -453,7 +462,7 @@ function addToCollectionIfNeededCachedOne(type, objectReference, collectionAndAd
         pendingAddToCollection[key] = cache;
     }
     cache[addend.id] = true;
-    log.trace("dhis.addToCollectionIfNeededCached " + key + " " + addend.id);
+    //log.trace("dhis.addToCollectionIfNeededCached " + key + " " + addend.id);
 }
 
 var addToCollectionIfNeededCached = exports.addToCollectionIfNeededCached = function(type, objectReference, collectionAndAddendType, addends) {
@@ -472,7 +481,7 @@ function flushAddToCollectionCache() {
             var objectReference = cacheSplit[1];
             var collectionAndAddendType = cacheSplit[2];
             var addends = common.propertyArray(pendingAddToCollection[cache]);
-            log.trace("dhis.flushAddToCollectionCache item " + cache + " [" + addends + "]" );
+            //log.trace("dhis.flushAddToCollectionCache item " + cache + " [" + addends + "]" );
             addToCollectionIfNeeded(type, objectReference, collectionAndAddendType, addends);
         }
     }
@@ -480,7 +489,7 @@ function flushAddToCollectionCache() {
 }
 
 exports.addManagedGroupIfNeededCached = function(objectReference, addends){
-    log.trace("dhis.addManagedGroupIfNeeded " + objectReference + " -> " + addends );
+    //log.trace("dhis.addManagedGroupIfNeeded " + objectReference + " -> " + addends );
     addToCollectionIfNeededCached("userGroup", objectReference, "managedGroup/userGroup", addends);
 }
 
@@ -523,7 +532,7 @@ function shareOne(type, fromReference, publicAccess, to, replaceFlag) {
         log.error("dhis.shareOne can't find " + type + " to share " + util.inspect(fromReference));
         return;
     }
-    log.trace("dhis.shareOne type " + type + " from " + from.name + " publicAccess " + publicAccess + " to " + util.inspect(to) + " replaceFlag=" + replaceFlag);
+    //log.trace("dhis.shareOne type " + type + " from " + from.name + " publicAccess " + publicAccess + " to " + util.inspect(to) + " replaceFlag=" + replaceFlag);
     var sharing;
     var acl;
     if (from.userGroupAccesses) { // See if ACL is already in the "from" object.
@@ -726,7 +735,7 @@ function flushShareCache() {
             var publicAccess = cacheSplit[2];
             var toArray = [];
             var toDict = pendingShares[cache];
-            log.trace("flushShareCache = " + cache + ",  toDict =" + util.inspect(toDict));
+            //log.trace("flushShareCache = " + cache + ",  toDict =" + util.inspect(toDict));
             for (var group in toDict) {
                 if(toDict.hasOwnProperty(group)) {
                     var to = {group: group,  groupAccess: toDict[group]};
@@ -734,7 +743,7 @@ function flushShareCache() {
                 }
             }
             if ( toArray ) {
-                log.trace("dhis.flushShareCache item " + cache + " [" + util.inspect(toArray) + "]" );
+                //log.trace("dhis.flushShareCache item " + cache + " [" + util.inspect(toArray) + "]" );
                 shareOne(type, from, publicAccess, toArray, pendingShareReplaceFlags[cache]);
             }
         }
